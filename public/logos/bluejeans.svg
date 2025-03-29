@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100">
+  <g transform="translate(40,20)">
+    <path d="M0 30c0-16.5 13.5-30 30-30h80c16.5 0 30 13.5 30 30s-13.5 30-30 30h-80c-16.5 0-30-13.5-30-30z" fill="#2185D0"/>
+    <path d="M150 15l30-15v60l-30-15v-30z" fill="#2185D0"/>
+    <g fill="none" stroke="white" stroke-width="4" stroke-linecap="round">
+      <path d="M30 20h80"/>
+      <path d="M30 40h80"/>
+      <path d="M30 30h60"/>
+    </g>
+  </g>
+</svg> 

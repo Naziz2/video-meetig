@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --scrollbar-thumb: rgb(203 213 225);
+    --scrollbar-track: rgb(241 245 249);
+    --color-primary: 0, 135, 255;
+    --color-accent: 0, 193, 178;
+    --color-success: 0, 217, 108;
+    --color-warning: 255, 184, 0;
+    --color-danger: 255, 107, 107;
+    
+    --color-meeting-bg: 248, 250, 252;
+    --color-meeting-surface: 255, 255, 255;
+    --color-meeting-panel: 241, 245, 249;
+    --color-meeting-control: 226, 232, 240;
+  }
+
+  .dark {
+    --scrollbar-thumb: rgb(71 85 105);
+    --scrollbar-track: rgb(30 41 59);
+    --color-meeting-bg: 15, 23, 42;
+    --color-meeting-surface: 30, 41, 59;
+    --color-meeting-panel: 51, 65, 85;
+    --color-meeting-control: 71, 85, 105;
+  }
+
+  body {
+    @apply bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white transition-colors duration-200;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
+
+  /* Improved focus styles */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-wolt-blue ring-offset-2 dark:ring-offset-secondary-900;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes float-up {
+  0% {
+    transform: translate(-50%, 0) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(-50%, -20%) scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -100%) scale(1);
+    opacity: 0;
+  }
+}
+
+.animate-float-up {
+  animation: float-up 2s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  filter: brightness(0.9);
+}
+
+/* Firefox */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Hide scrollbar when not hovering */
+.scrollbar-thin {
+  scrollbar-gutter: stable;
+}
+
+/* Custom selection color */
+::selection {
+  @apply bg-wolt-blue/20 text-secondary-900 dark:text-white;
+}
+
+/* Improved button and input styles */
+@layer components {
+  .btn {
+    @apply px-6 py-3 rounded-xl font-medium transition-all duration-200 
+           focus:outline-none focus:ring-2 focus:ring-wolt-blue focus:ring-offset-2 
+           dark:focus:ring-offset-secondary-900 shadow-wolt hover:shadow-wolt-hover;
+  }
+
+  .btn-primary {
+    @apply bg-wolt-blue text-white hover:bg-primary-600 
+           active:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary-50 dark:bg-secondary-800 text-secondary-900 dark:text-white 
+           hover:bg-secondary-100 dark:hover:bg-secondary-700
+           active:bg-secondary-200 dark:active:bg-secondary-600;
+  }
+
+  .input {
+    @apply px-4 py-3 rounded-xl border border-secondary-200 dark:border-secondary-700
+           bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white
+           focus:outline-none focus:ring-2 focus:ring-wolt-blue/20 focus:border-wolt-blue
+           placeholder:text-secondary-400 dark:placeholder:text-secondary-500
+           disabled:bg-secondary-50 dark:disabled:bg-secondary-900
+           disabled:cursor-not-allowed transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white dark:bg-secondary-800 rounded-2xl shadow-wolt hover:shadow-wolt-hover
+           transition-all duration-200 border border-secondary-100 dark:border-secondary-700;
+  }
+
+  /* Logos scrolling animation */
+  .logos-scroll {
+    @apply animate-scrolling inline-flex space-x-8 whitespace-nowrap;
+  }
+
+  /* Teams sidebar styling */
+  .teams-sidebar {
+    @apply bg-slate-800/95 backdrop-blur-sm text-white border-l border-slate-700 overflow-y-auto;
+  }
+
+  /* Meeting UI Components */
+  .meeting-container {
+    @apply bg-gradient-to-br from-meeting-background-light to-secondary-100 dark:from-meeting-background-dark dark:to-secondary-800 min-h-screen;
+  }
+
+  .meeting-header {
+    @apply bg-meeting-surface-light/80 dark:bg-meeting-surface-dark/80 backdrop-blur-sm 
+           border-b border-secondary-200 dark:border-secondary-700 px-4 py-3;
+  }
+
+  .meeting-footer {
+    @apply bg-meeting-surface-light/80 dark:bg-meeting-surface-dark/80 backdrop-blur-sm 
+           border-t border-secondary-200 dark:border-secondary-700 px-4 py-3;
+  }
+
+  .meeting-panel {
+    @apply bg-meeting-panel-light dark:bg-meeting-panel-dark border-l border-secondary-200 
+           dark:border-secondary-700 shadow-meeting dark:shadow-meeting-dark;
+  }
+
+  .meeting-control-button {
+    @apply p-3 rounded-full transition-colors duration-200 focus:outline-none;
+  }
+
+  .meeting-control-button-active {
+    @apply bg-primary-500 text-white;
+  }
+
+  .meeting-control-button-inactive {
+    @apply bg-meeting-control-light/50 dark:bg-meeting-control-dark/50 
+           text-secondary-700 dark:text-secondary-300 
+           hover:bg-meeting-control-light dark:hover:bg-meeting-control-dark;
+  }
+
+  .meeting-control-button-danger {
+    @apply bg-danger-500/20 text-danger-500 hover:bg-danger-500/30;
+  }
+
+  .video-container {
+    @apply relative aspect-video bg-secondary-800 rounded-lg overflow-hidden shadow-lg;
+  }
+
+  .video-label {
+    @apply absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-sm text-white;
+  }
+}
