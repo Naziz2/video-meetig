@@ -91,24 +91,33 @@ export const Join = () => {
       return;
     }
 
-    // Check if the room ID exists
-    const roomIds = getRoomIds();
-    if (!roomIds.includes(roomId)) {
-      setError('Meeting code does not exist. Please check the code or create a new meeting.');
-      return;
-    }
-
     setIsLoading(true);
     try {
       const uniqueId = generateUniqueId();
       saveUser(uniqueId, name.trim());
-      // Use the correct Agora App ID
-      setCredentials('767291001f404b57a5ae8faa042478c6', roomId, null);
+      // Use the Agora App ID from environment variables
+      setCredentials(import.meta.env.VITE_AGORA_APP_ID, roomId, null);
       useStore.getState().setUser({
         id: uniqueId,
         name: name.trim(),
         email: ''
       });
+      
+      // Save user name to localStorage
+      localStorage.setItem(`user_${uniqueId}`, name.trim());
+      
+      // Save room ID to localStorage for persistence
+      const saveRoomId = (roomId: string): void => {
+        const roomIds = localStorage.getItem('roomIds');
+        const existingRoomIds = roomIds ? JSON.parse(roomIds) : [];
+        if (!existingRoomIds.includes(roomId)) {
+          existingRoomIds.push(roomId);
+          localStorage.setItem('roomIds', JSON.stringify(existingRoomIds));
+        }
+      };
+      
+      saveRoomId(roomId);
+      
       navigate(`/room/${roomId}`);
     } catch (err) {
       console.error('Join error:', err);
@@ -139,13 +148,23 @@ export const Join = () => {
     try {
       const uniqueId = generateUniqueId();
       saveUser(uniqueId, name.trim());
-      // Use the correct Agora App ID
-      setCredentials('767291001f404b57a5ae8faa042478c6', roomId, null);
+      // Use the Agora App ID from environment variables
+      setCredentials(import.meta.env.VITE_AGORA_APP_ID, roomId, null);
       useStore.getState().setUser({
         id: uniqueId,
         name: name.trim(),
         email: ''
       });
+      
+      // Save user name to localStorage
+      localStorage.setItem(`user_${uniqueId}`, name.trim());
+      
+      // Mark this user as the creator of the room
+      const roomCreatorsData = localStorage.getItem('roomCreators');
+      const roomCreators = roomCreatorsData ? JSON.parse(roomCreatorsData) : {};
+      roomCreators[roomId] = uniqueId;
+      localStorage.setItem('roomCreators', JSON.stringify(roomCreators));
+      
       navigate(`/room/${roomId}`);
     } catch (err) {
       console.error('Create error:', err);
@@ -189,6 +208,14 @@ export const Join = () => {
       setRoomId(roomParam || '');
     }
   }, [showCreateForm, location.search]);
+
+  // Load saved user name on component mount
+  useEffect(() => {
+    const savedName = localStorage.getItem('userName');
+    if (savedName) {
+      setName(savedName);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white">

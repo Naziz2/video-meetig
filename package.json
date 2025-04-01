@@ -10,14 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@huggingface/inference": "^1.0.0",
     "@supabase/supabase-js": "^2.39.3",
+    "@tinymce/tinymce-react": "^6.1.0",
     "agora-rtc-react": "^2.1.0",
     "agora-rtc-sdk-ng": "^4.20.1",
     "clsx": "^2.1.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-image-crop": "^11.0.7",
     "react-router-dom": "^6.22.3",
     "tailwind-merge": "^2.2.1",
     "zustand": "^4.5.2"

@@ -3,6 +3,7 @@ import { MessageCircle, Image, Download, X, Mic, MicOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 import { HfInference } from '@huggingface/inference';
+import { LanguageOption, languageOptions } from '../utils/languageOptions';
 
 // Add interface for speech messages
 interface SpeechMessage {
@@ -14,12 +15,6 @@ interface SpeechMessage {
   created_at: string;
 }
 
-// Add language options
-interface LanguageOption {
-  code: string;
-  name: string;
-}
-
 // Add this type if not already present
 interface ImageModalProps {
   imageUrl: string;
@@ -29,7 +24,7 @@ interface ImageModalProps {
 
 interface TranscriptPanelProps {
   onClose?: () => void;
-  selectedLanguage?: string;
+  selectedLanguage: string;
 }
 
 const hf = new HfInference(import.meta.env.VITE_HUGGING_FACE_API_KEY);
@@ -42,7 +37,72 @@ const useRoomChannel = () => {
   return { user, channel: roomId };
 };
 
-export const TranscriptPanel = ({ onClose, selectedLanguage = 'en-US' }: TranscriptPanelProps) => {
+// Add more emoji categories for summaries and different response types
+const EMOJIS = {
+  greeting: ['👋', '😊', '🙂', '👍'],
+  question: ['🤔', '❓', '🧐', '🔍'],
+  announcement: ['📢', '📣', '🔔', '💡'],
+  technical: ['💻', '⚙️', '🔧', '📊'],
+  confirmation: ['✅', '👌', '👍', '🎯'],
+  farewell: ['👋', '✌️', '🙋‍♂️', '👋‍♀️'],
+  ai: ['🤖', '🧠', '🔮', '💭'],
+  summary: ['📋', '📝', '📊', '📈', '🗂️'],
+  positive: ['👏', '🎉', '🌟', '✨', '🚀'],
+  negative: ['😓', '⚠️', '��', '❗', '⛔']
+};
+
+// Helper function to get a random emoji based on message content
+const getRandomEmoji = (message: string, isAi = false): string => {
+  if (isAi) {
+    return EMOJIS.ai[Math.floor(Math.random() * EMOJIS.ai.length)];
+  }
+  
+  message = message.toLowerCase();
+  
+  if (message.includes('hello') || message.includes('hi ') || message.includes('hey')) {
+    return EMOJIS.greeting[Math.floor(Math.random() * EMOJIS.greeting.length)];
+  } else if (message.includes('?')) {
+    return EMOJIS.question[Math.floor(Math.random() * EMOJIS.question.length)];
+  } else if (message.includes('announce') || message.includes('attention') || message.includes('listen')) {
+    return EMOJIS.announcement[Math.floor(Math.random() * EMOJIS.announcement.length)];
+  } else if (message.includes('code') || message.includes('bug') || message.includes('fix') || message.includes('feature')) {
+    return EMOJIS.technical[Math.floor(Math.random() * EMOJIS.technical.length)];
+  } else if (message.includes('yes') || message.includes('agree') || message.includes('confirm') || message.includes('ok')) {
+    return EMOJIS.confirmation[Math.floor(Math.random() * EMOJIS.confirmation.length)];
+  } else if (message.includes('bye') || message.includes('goodbye') || message.includes('see you')) {
+    return EMOJIS.farewell[Math.floor(Math.random() * EMOJIS.farewell.length)];
+  }
+  
+  // Default random emoji
+  const allEmojis = [...EMOJIS.greeting, ...EMOJIS.question, ...EMOJIS.technical, ...EMOJIS.confirmation];
+  return allEmojis[Math.floor(Math.random() * allEmojis.length)];
+};
+
+// Component for typewriter text
+const TypewriterText = ({ text }: { text: string }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, 15); // typing speed in ms
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [currentIndex, text]);
+  
+  return (
+    <>
+      {displayedText}
+      {currentIndex < text.length && <span className="animate-pulse">|</span>}
+    </>
+  );
+};
+
+export const TranscriptPanel = ({ onClose, selectedLanguage }: TranscriptPanelProps) => {
   const { user, channel } = useRoomChannel();
   const [currentMode, setCurrentMode] = useState<'chat' | 'image' | 'speech'>('chat');
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string; images?: string[] }[]>([]);
@@ -58,14 +118,7 @@ export const TranscriptPanel = ({ onClose, selectedLanguage = 'en-US' }: Transcr
   const [isTyping, setIsTyping] = useState(false);
   const [isAiResponding, setIsAiResponding] = useState(false);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
-
-  // Add language options
-  const languageOptions: LanguageOption[] = [
-    { code: 'ar-TN', name: 'العربية التونسية' },
-    { code: 'fr-FR', name: 'Français' },
-    { code: 'en-US', name: 'English' },
-    { code: 'ar', name: 'العربية الفصحى' }
-  ];
+  const [summaryLanguage, setSummaryLanguage] = useState<string>(selectedLanguage);
 
   // Add speech recognition setup
   const startListening = async () => {
@@ -242,9 +295,12 @@ export const TranscriptPanel = ({ onClose, selectedLanguage = 'en-US' }: Transcr
   const sendMessage = async () => {
     if (!userInput.trim()) return;
 
+    const emoji = getRandomEmoji(userInput);
+    const userMessageContent = `${emoji} ${userInput}`;
+
     const newMessage = {
       role: 'user',
-      content: userInput,
+      content: userMessageContent,
     };
 
     setChatMessages((prev) => [...prev, newMessage]);
@@ -264,11 +320,32 @@ export const TranscriptPanel = ({ onClose, selectedLanguage = 'en-US' }: Transcr
         }
       });
 
+      const aiEmoji = getRandomEmoji('', true);
       const aiResponse = response.generated_text.trim();
-      setChatMessages((prev) => [...prev, { role: 'ai', content: aiResponse }]);
+      
+      // First add a placeholder message for typing animation
+      setChatMessages((prev) => [...prev, { 
+        role: 'ai-typing', 
+        content: `${aiEmoji} ${aiResponse}` 
+      }]);
+      
+      // After a delay based on text length, replace with final message
+      setTimeout(() => {
+        setChatMessages((prev) => {
+          const filtered = prev.filter(msg => msg.role !== 'ai-typing');
+          return [...filtered, { 
+            role: 'ai', 
+            content: `${aiEmoji} ${aiResponse}` 
+          }];
+        });
+      }, Math.min(aiResponse.length * 15, 5000)); // Cap at 5 seconds max
     } catch (error) {
       console.error('Error sending chat message:', error);
-      setChatMessages((prev) => [...prev, { role: 'ai', content: 'Sorry, I encountered an error. Please try again.' }]);
+      const aiEmoji = getRandomEmoji('', true);
+      setChatMessages((prev) => [...prev, { 
+        role: 'ai', 
+        content: `${aiEmoji} Sorry, I encountered an error. Please try again.` 
+      }]);
     } finally {
       setIsAiResponding(false);
     }
@@ -305,9 +382,16 @@ export const TranscriptPanel = ({ onClose, selectedLanguage = 'en-US' }: Transcr
       
       setResumeContent('Analyzing conversation...');
       
+      // Get the selected language name for clarity
+      const selectedLangName = getLanguageName(summaryLanguage);
+      console.log(`Generating summary in: ${getLanguageDisplayInfo(summaryLanguage)}`);
+      
       const response = await hf.textGeneration({
         model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        inputs: `Analyze this meeting conversation and provide a structured summary focusing on project details:
+        inputs: `You are a multilingual AI assistant. Your task is to analyze this meeting conversation and provide a structured summary.
+
+IMPORTANT: Your response MUST be written ONLY in ${selectedLangName} language (${summaryLanguage}). 
+DO NOT use English or any other language except ${selectedLangName}.
 
 Meeting Duration: ${startTime} - ${endTime}
 Participants: ${speakers.join(', ')}
@@ -315,12 +399,18 @@ Participants: ${speakers.join(', ')}
 Conversation:
 ${formattedConversation}
 
-Please provide:
+Please provide a complete summary in ${selectedLangName} language with these sections:
 1. Project Overview: Brief summary of what was discussed
 2. Key Technical Points: Important technical details or requirements mentioned
 3. Critical Keywords: Extract key technical terms, tools, frameworks, or technologies discussed
 4. Action Items: List of tasks or next steps identified
-5. Important Decisions: Any decisions made during the meeting`,
+5. Important Decisions: Any decisions made during the meeting
+
+You must use emojis for each section and make the summary visually appealing. Use bold, lists, and other formatting to organize information.
+Your response should NOT include any disclaimers, model limitations, or text explaining what you're going to do.
+Just give me the formatted summary directly, starting with the sections requested and after the sections add a summary of the meeting with emojis and bold.
+
+REPEAT: The ENTIRE response must be in ${selectedLangName} language (${summaryLanguage}) only.`,
         parameters: {
           max_new_tokens: 500,
           temperature: 0.3,
@@ -332,19 +422,19 @@ Please provide:
 
       const summaryText = response.generated_text.trim();
 
-      // Show only the analysis
-      let displayedText = `Meeting Summary (${startTime} - ${endTime})\n\n`;
-      setResumeContent(displayedText);
+      // Process the summary to remove any unwanted headers or command text
+      const cleanedSummary = summaryText
+        .replace(/^(I'll provide|Here's|The following is|I will provide).*?\n/i, '')
+        .replace(/^(Let me provide|I'm providing|Here is|This is).*?\n/i, '');
 
-      // Animate the analysis part
-      for (const char of summaryText) {
-        displayedText += char;
-        setResumeContent(displayedText);
-        await new Promise(resolve => setTimeout(resolve, 20));
-      }
+      // Show the meeting summary with a formatted header
+      const emoji = EMOJIS.summary[Math.floor(Math.random() * EMOJIS.summary.length)];
+      let displayedText = `${emoji} Meeting Summary (${startTime} - ${endTime}) ${emoji}\n\n${cleanedSummary}`;
+      setResumeContent(displayedText);
     } catch (error) {
       console.error('Error generating summary:', error);
-      setResumeContent('Sorry, I encountered an error generating the summary. Please try again.');
+      const emoji = EMOJIS.negative[Math.floor(Math.random() * EMOJIS.negative.length)];
+      setResumeContent(`${emoji} Sorry, I encountered an error generating the summary. Please try again.`);
     } finally {
       setIsTyping(false);
       setIsSummaryLoading(false);
@@ -381,7 +471,7 @@ Please provide:
   const ImageModal: React.FC<ImageModalProps> = ({ imageUrl, onClose, onDownload }) => {
     return (
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-meeting-panel-dark/90"
         onClick={onClose}
       >
         <div className="relative max-w-[90vw] max-h-[90vh]">
@@ -393,7 +483,7 @@ Please provide:
           />
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 bg-slate-800/90 rounded-full text-white hover:bg-slate-700"
+            className="absolute top-4 right-4 p-2 bg-meeting-control-dark rounded-full text-white hover:bg-meeting-control-dark/70"
           >
             <X className="w-6 h-6" />
           </button>
@@ -402,7 +492,7 @@ Please provide:
               e.stopPropagation();
               onDownload(imageUrl);
             }}
-            className="absolute bottom-4 right-4 p-2 bg-emerald-600 rounded-full text-white hover:bg-emerald-700"
+            className="absolute bottom-4 right-4 p-2 bg-primary-500 rounded-full text-white hover:bg-primary-600"
           >
             <Download className="w-6 h-6" />
           </button>
@@ -411,12 +501,25 @@ Please provide:
     );
   };
 
+  // Add useEffect to regenerate summary when language changes
+  useEffect(() => {
+    // If we have a summary and we're in speech mode, regenerate it when language changes
+    if (
+      resumeContent && 
+      resumeContent !== 'Analyzing conversation...' && 
+      currentMode === 'speech' && 
+      speechMessages.length > 0
+    ) {
+      generateResume();
+    }
+  }, [summaryLanguage]);
+
   return (
-    <div className="flex flex-col h-full bg-slate-800">
+    <div className="flex flex-col h-full bg-meeting-panel-dark">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-purple-900/50 bg-slate-700/90">
+      <div className="px-4 py-3 border-b border-secondary-700 bg-meeting-surface-dark/90">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-purple-400">
+          <h2 className="text-lg font-semibold text-white">
             {currentMode === 'chat' ? 'AI Chat' : 
              currentMode === 'image' ? 'Image Generation' : 
              'Speech to Text'}
@@ -425,7 +528,7 @@ Please provide:
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 scrollbar-thin scrollbar-thumb-purple-600/50 scrollbar-track-slate-700">
+      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 scrollbar-thin scrollbar-thumb-primary-500/50 scrollbar-track-meeting-surface-dark">
         {currentMode === 'speech' ? (
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto space-y-3">
@@ -434,12 +537,12 @@ Please provide:
                 <div key={message.id} className={`flex ${message.speaker_id === user?.id ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] rounded-lg p-3 break-words ${
                     message.speaker_id === user?.id 
-                      ? 'bg-gradient-to-r from-purple-600/80 to-purple-800/80 text-white' 
-                      : 'bg-gradient-to-r from-slate-600/80 to-slate-700/80 text-white'
+                      ? 'bg-primary-500/80 text-white' 
+                      : 'bg-meeting-surface-dark/80 text-white'
                   }`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-purple-200">{message.speaker}</span>
-                      <span className="text-sm text-purple-200/80">
+                      <span className="font-medium text-white">{message.speaker}</span>
+                      <span className="text-sm text-white/80">
                         {new Date(message.created_at).toLocaleTimeString()}
                       </span>
                     </div>
@@ -451,7 +554,7 @@ Please provide:
               {/* Current Transcript */}
               {currentTranscript && (
                 <div className="flex justify-end">
-                  <div className="max-w-[80%] rounded-lg p-3 break-words bg-gradient-to-r from-purple-600/50 to-purple-800/50 text-white">
+                  <div className="max-w-[80%] rounded-lg p-3 break-words bg-primary-500/50 text-white">
                     <p className="text-sm break-words">{currentTranscript}</p>
                   </div>
                 </div>
@@ -459,19 +562,55 @@ Please provide:
 
               {/* Summary Container */}
               {resumeContent && (
-                <div className="bg-slate-700 rounded-lg border border-purple-900/50">
+                <div className="bg-meeting-surface-dark rounded-lg border border-secondary-700 shadow-lg">
                   <div className="p-4">
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-semibold text-purple-400">Meeting Summary</h3>
-                      <button
-                        onClick={downloadResume}
-                        className="p-2 bg-gradient-to-r from-purple-600 to-purple-800 rounded-full text-white hover:from-purple-700 hover:to-purple-900"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                      <h3 className="text-lg font-semibold text-white flex items-center">
+                        <span className="mr-2">📋</span>
+                        Meeting Summary
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <select
+                          value={summaryLanguage}
+                          onChange={(e) => {
+                            console.log(`Language changed to: ${getLanguageDisplayInfo(e.target.value)}`);
+                            setSummaryLanguage(e.target.value);
+                            // Regenerate summary with new language if we already have content
+                            if (resumeContent && resumeContent !== 'Analyzing conversation...') {
+                              generateResume();
+                            }
+                          }}
+                          className="bg-meeting-panel-dark text-white rounded-lg px-2 py-1 text-sm border border-secondary-700 focus:ring-2 focus:ring-wolt-blue focus:border-transparent"
+                        >
+                          {languageOptions.map((lang: LanguageOption) => (
+                            <option key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={downloadResume}
+                          className="p-1.5 hover:bg-meeting-control-dark rounded-full transition-colors duration-200"
+                        >
+                          <Download className="w-5 h-5 text-white" />
+                        </button>
+                        <button
+                          onClick={() => setResumeContent(null)}
+                          className="p-1.5 hover:bg-meeting-control-dark rounded-full transition-colors duration-200"
+                        >
+                          <X className="w-5 h-5 text-white" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-white whitespace-pre-wrap text-sm">
-                      {resumeContent}
+                    <div className="text-white whitespace-pre-wrap text-sm bg-meeting-panel-dark p-4 rounded-lg border border-secondary-700/30 leading-relaxed">
+                      {resumeContent === 'Analyzing conversation...' ? (
+                        <div className="flex items-center justify-center py-8">
+                          <span className="mr-2 animate-spin">⏳</span>
+                          <span>Analyzing conversation...</span>
+                        </div>
+                      ) : (
+                        resumeContent
+                      )}
                     </div>
                   </div>
                 </div>
@@ -479,15 +618,33 @@ Please provide:
             </div>
           </div>
         ) : (
-          // Chat Messages
+          // Chat Messages with added typewriter effect for AI responses
           chatMessages.map((message, index) => (
             <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-lg p-3 break-words ${
                 message.role === 'user' 
-                  ? 'bg-gradient-to-r from-purple-600/80 to-purple-800/80 text-white' 
-                  : 'bg-gradient-to-r from-slate-600/80 to-slate-700/80 text-white'
+                  ? 'bg-primary-500/80 text-white' 
+                  : message.role === 'ai-typing' 
+                    ? 'bg-meeting-surface-dark/80 text-white border border-secondary-700/50 shadow-md'
+                    : 'bg-meeting-surface-dark/80 text-white border border-secondary-700/50 shadow-md'
               }`}>
-                <p className="text-sm break-words">{message.content}</p>
+                {message.role === 'ai-typing' ? (
+                  <p className="text-sm break-words">
+                    <TypewriterText text={message.content} />
+                  </p>
+                ) : (
+                  <>
+                    {message.role !== 'user' && (
+                      <div className="flex items-center mb-1.5">
+                        <span className="bg-primary-500/20 rounded-full p-1 mr-2">
+                          {message.content.charAt(0)}
+                        </span>
+                        <span className="text-xs text-white/70">AI Assistant</span>
+                      </div>
+                    )}
+                    <p className="text-sm break-words leading-relaxed">{message.content}</p>
+                  </>
+                )}
                 {message.images && message.images.map((img, imgIndex) => (
                   <div key={imgIndex} className="mt-2 relative group">
                     <img 
@@ -501,7 +658,7 @@ Please provide:
                         e.stopPropagation();
                         downloadImage(img);
                       }}
-                      className="absolute top-2 right-2 p-2 bg-slate-700/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 p-2 bg-meeting-surface-dark/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Download className="w-5 h-5 text-white" />
                     </button>
@@ -514,14 +671,14 @@ Please provide:
       </div>
 
       {/* Controls */}
-      <div className="p-4 border-t border-purple-900/50 bg-slate-700/90">
+      <div className="p-4 border-t border-secondary-700 bg-meeting-surface-dark/90">
         <div className="flex gap-2 mb-3">
           <button
             onClick={() => setMode('chat')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
               currentMode === 'chat'
-                ? 'bg-gradient-to-r from-purple-600 to-purple-800 text-white'
-                : 'bg-slate-600 text-purple-400 hover:bg-slate-500'
+                ? 'bg-primary-500 text-white'
+                : 'bg-meeting-control-dark text-white hover:bg-meeting-control-dark/70'
             }`}
           >
             <MessageCircle className="w-4 h-4" />
@@ -531,8 +688,8 @@ Please provide:
             onClick={() => setMode('image')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
               currentMode === 'image'
-                ? 'bg-gradient-to-r from-purple-600 to-purple-800 text-white'
-                : 'bg-slate-600 text-purple-400 hover:bg-slate-500'
+                ? 'bg-primary-500 text-white'
+                : 'bg-meeting-control-dark text-white hover:bg-meeting-control-dark/70'
             }`}
           >
             <Image className="w-4 h-4" />
@@ -542,8 +699,8 @@ Please provide:
             onClick={() => setMode('speech')}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
               currentMode === 'speech'
-                ? 'bg-gradient-to-r from-purple-600 to-purple-800 text-white'
-                : 'bg-slate-600 text-purple-400 hover:bg-slate-500'
+                ? 'bg-primary-500 text-white'
+                : 'bg-meeting-control-dark text-white hover:bg-meeting-control-dark/70'
             }`}
           >
             <Mic className="w-4 h-4" />
@@ -558,8 +715,8 @@ Please provide:
               onClick={toggleListening}
               className={`w-full flex items-center justify-center gap-3 p-3 rounded-lg transition-all duration-200 ${
                 isListening 
-                  ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900'
+                  ? 'bg-danger-500 hover:bg-danger-600'
+                  : 'bg-primary-500 hover:bg-primary-600'
               } text-white font-medium`}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -568,7 +725,7 @@ Please provide:
             {speechMessages.length > 0 && (
               <button
                 onClick={generateResume}
-                className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white font-medium"
+                className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-primary-500 hover:bg-primary-600 text-white font-medium"
               >
                 <Download className="w-5 h-5" />
                 <span>Generate Summary</span>
@@ -583,12 +740,12 @@ Please provide:
               onChange={(e) => setUserInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && (currentMode === 'chat' ? sendMessage() : generateImage())}
               placeholder={currentMode === 'chat' ? "Type your message here..." : "Describe the image you want..."}
-              className="flex-1 bg-slate-600 text-white rounded-lg px-3 py-2 border border-slate-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="flex-1 bg-meeting-control-dark text-white rounded-lg px-3 py-2 border border-secondary-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             <button
               onClick={currentMode === 'chat' ? sendMessage : generateImage}
               disabled={isGenerating}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg hover:from-purple-700 hover:to-purple-900 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-primary-500 rounded-lg hover:bg-primary-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {currentMode === 'chat' ? 'Send' : 'Generate'}
             </button>
@@ -606,4 +763,19 @@ Please provide:
       )}
     </div>
   );
+};
+
+// Helper function to get language name from code
+const getLanguageName = (code: string): string => {
+  const language = languageOptions.find(lang => lang.code === code);
+  return language ? language.name : 'English';
+};
+
+// Add a function to help debug language selection
+const getLanguageDisplayInfo = (code: string): string => {
+  const language = languageOptions.find(lang => lang.code === code);
+  if (!language) {
+    return `Unknown (code: ${code})`;
+  }
+  return `${language.name} (${code})`;
 };

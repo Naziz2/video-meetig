@@ -6,10 +6,12 @@ interface User {
   email: string;
   name: string;
   role?: 'leader' | 'participant';
+  avatar_url?: string;
+  created_at?: string;
 }
 
 interface Settings {
-  videoQuality: '360p' | '720p' | '1080p';
+  videoQuality: '360p' | '480p' | '720p' | '1080p';
   audioInput: string;
   videoInput: string;
   audioOutput?: string;
@@ -32,6 +34,7 @@ interface AppState {
   setCredentials: (appId: string, channel: string, token: string | null) => void;
   setChannel: (channel: string) => void;
   setUser: (user: User | null) => void;
+  clearUser: () => void;
   setSettings: (settings: Partial<Settings>) => void;
   updateSettings: (settings: Partial<Settings>) => void;
 }
@@ -60,6 +63,7 @@ export const useStore = create<AppState>()(
       setCredentials: (appId, channel, token) => set({ appId, channel, token }),
       setChannel: (channel) => set({ channel }),
       setUser: (user) => set({ user }),
+      clearUser: () => set({ user: null }),
       setSettings: (settings) => set({ settings: settings as Settings }),
       updateSettings: (newSettings) => 
         set((state) => ({ 

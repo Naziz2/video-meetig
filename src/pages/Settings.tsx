@@ -18,7 +18,7 @@ export const Settings = () => {
   const [videoInput, setVideoInput] = useState(storedSettings?.videoInput || 'default');
   const [audioInput, setAudioInput] = useState(storedSettings?.audioInput || 'default');
   const [audioOutput, setAudioOutput] = useState(storedSettings?.audioOutput || 'default');
-  const [videoQuality, setVideoQuality] = useState<'360p' | '720p' | '1080p'>(
+  const [videoQuality, setVideoQuality] = useState<'360p' | '480p' | '720p' | '1080p'>(
     storedSettings?.videoQuality || '720p'
   );
   
@@ -181,15 +181,19 @@ export const Settings = () => {
                       Video Quality
                     </div>
                   </label>
-                  <select
-                    value={videoQuality}
-                    onChange={(e) => setVideoQuality(e.target.value as '360p' | '720p' | '1080p')}
-                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-secondary-700 border border-gray-300 dark:border-secondary-600 text-secondary-900 dark:text-white focus:ring-2 focus:ring-wolt-blue focus:border-transparent"
-                  >
-                    <option value="360p">360p (Low)</option>
-                    <option value="720p">720p (High)</option>
-                    <option value="1080p">1080p (Full HD)</option>
-                  </select>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-white">Video Quality</label>
+                    <select
+                      value={videoQuality}
+                      onChange={(e) => setVideoQuality(e.target.value as '360p' | '480p' | '720p' | '1080p')}
+                      className="w-full bg-meeting-panel-dark text-white rounded-lg px-3 py-2 border border-secondary-700 focus:ring-2 focus:ring-wolt-blue focus:border-transparent"
+                    >
+                      <option value="360p">360p (640x360) - Low</option>
+                      <option value="480p">480p (848x480) - Medium</option>
+                      <option value="720p">720p (1280x720) - High</option>
+                      <option value="1080p">1080p (1920x1080) - Ultra HD</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
