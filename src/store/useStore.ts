@@ -10,11 +10,12 @@ interface User {
   created_at?: string;
 }
 
-interface Settings {
+export interface Settings {
   videoQuality: '360p' | '480p' | '720p' | '1080p';
   audioInput: string;
   videoInput: string;
-  audioOutput?: string;
+  audioOutput: string;
+  agoraAppCertificate: string;
   theme?: 'light' | 'dark';
   reducedMotion?: boolean;
   fontSize?: 'small' | 'medium' | 'large';
@@ -42,7 +43,7 @@ interface AppState {
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
-      appId: '767291001f404b57a5ae8faa042478c6',
+      appId: 'ac5d59b2934e4e418409960fe08d20a4',
       channel: 'test',
       token: null,
       uid: Math.floor(Math.random() * 10000),
@@ -52,6 +53,7 @@ export const useStore = create<AppState>()(
         audioInput: 'default',
         videoInput: 'default',
         audioOutput: 'default',
+        agoraAppCertificate: '',
         theme: 'dark',
         reducedMotion: false,
         fontSize: 'medium',

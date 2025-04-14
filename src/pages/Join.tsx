@@ -75,6 +75,11 @@ export const Join = () => {
     if (roomParam) {
       setRoomId(roomParam);
     }
+    
+    // Check for error message from invalid room attempt
+    if (location.state && location.state.error) {
+      setError(location.state.error);
+    }
   }, [location]);
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -88,6 +93,14 @@ export const Join = () => {
 
     if (!roomId) {
       setError('Invalid meeting code');
+      return;
+    }
+
+    // Validate that the room ID exists in the valid rooms list
+    const roomIds = localStorage.getItem('roomIds');
+    const validRoomIds = roomIds ? JSON.parse(roomIds) : [];
+    if (!validRoomIds.includes(roomId)) {
+      setError('Invalid meeting code. This meeting does not exist.');
       return;
     }
 
@@ -106,18 +119,7 @@ export const Join = () => {
       // Save user name to localStorage
       localStorage.setItem(`user_${uniqueId}`, name.trim());
       
-      // Save room ID to localStorage for persistence
-      const saveRoomId = (roomId: string): void => {
-        const roomIds = localStorage.getItem('roomIds');
-        const existingRoomIds = roomIds ? JSON.parse(roomIds) : [];
-        if (!existingRoomIds.includes(roomId)) {
-          existingRoomIds.push(roomId);
-          localStorage.setItem('roomIds', JSON.stringify(existingRoomIds));
-        }
-      };
-      
-      saveRoomId(roomId);
-      
+      // When joining, we don't need to save the room ID again since it already exists
       navigate(`/room/${roomId}`);
     } catch (err) {
       console.error('Join error:', err);

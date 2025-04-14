@@ -40,7 +40,28 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // Use a small timeout to ensure the DOM is ready
       const timer = setTimeout(() => {
         try {
-          videoTrack.play(ref.current);
+          // For screen sharing, use 'contain' object-fit to show the entire screen
+          // For regular videos, use 'cover' to fill the container
+          const isScreenShare = user.uid === 'screen';
+          
+          // First, ensure any existing track is properly stopped
+          try {
+            videoTrack.stop();
+            // Clear any existing elements that might have been created
+            if (ref.current) {
+              while (ref.current.firstChild) {
+                ref.current.removeChild(ref.current.firstChild);
+              }
+            }
+          } catch (e) {
+            // Ignore errors when stopping
+          }
+          
+          // Then play the track with appropriate settings
+          videoTrack.play(ref.current, { 
+            fit: isScreenShare ? 'contain' : 'cover',
+            mirror: isLocal && !isScreenShare // Mirror only local camera, not screen shares
+          });
         } catch (error) {
           console.error('Error playing video track:', error);
         }
@@ -60,14 +81,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     return () => {
       try {
-        if (videoTrack) {
-          videoTrack.stop();
+        if (user.videoTrack) {
+          user.videoTrack.stop();
         }
       } catch (error) {
         console.error('Error stopping video track:', error);
       }
     };
-  }, [user.videoTrack]);
+  }, [user.videoTrack, isLocal]);
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-lg bg-slate-800">
@@ -76,7 +97,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={ref} 
         className="h-full w-full bg-slate-900"
         style={{ 
-          display: isVideoEnabled ? 'block' : 'none' 
+          display: isVideoEnabled ? 'block' : 'none',
+          position: 'relative' // Ensure proper positioning
         }}
       />
       
