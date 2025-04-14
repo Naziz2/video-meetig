@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Video, ArrowLeft, Loader2, Plus, Copy, Share2, Users, Info } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { WaitingRoom } from '../components/WaitingRoom';
+import { JoinRequest } from '../types/room';
 
 // Helper function to generate a unique ID for users
 const generateUniqueId = () => {
@@ -61,13 +63,15 @@ export const getUserName = (userId: string): string => {
 export const Join = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setCredentials } = useStore();
+  const { setCredentials, setUser, addJoinRequest, setPendingApproval } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
+  const [userId, setUserId] = useState('');
+  const [waitingForApproval, setWaitingForApproval] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -80,6 +84,11 @@ export const Join = () => {
     if (location.state && location.state.error) {
       setError(location.state.error);
     }
+
+    // Debug: Log room creators on component mount
+    const roomCreatorsData = localStorage.getItem('roomCreators');
+    const roomCreators = roomCreatorsData ? JSON.parse(roomCreatorsData) : {};
+    console.log('Join component mounted, room creators:', roomCreators);
   }, [location]);
 
   const handleJoin = async (e: React.FormEvent) => {
@@ -108,19 +117,75 @@ export const Join = () => {
     try {
       const uniqueId = generateUniqueId();
       saveUser(uniqueId, name.trim());
-      // Use the Agora App ID from environment variables
-      setCredentials(import.meta.env.VITE_AGORA_APP_ID, roomId, null);
-      useStore.getState().setUser({
-        id: uniqueId,
-        name: name.trim(),
-        email: ''
+      setUserId(uniqueId);
+      
+      // Check if this is the room creator
+      const roomCreatorsData = localStorage.getItem('roomCreators');
+      const roomCreators = roomCreatorsData ? JSON.parse(roomCreatorsData) : {};
+      const isCreator = roomCreators[roomId] === uniqueId;
+      
+      console.log('Join attempt:', { 
+        roomId, 
+        userId: uniqueId, 
+        userName: name.trim(), 
+        isCreator,
+        roomCreators
       });
       
-      // Save user name to localStorage
-      localStorage.setItem(`user_${uniqueId}`, name.trim());
+      // Save Agora App ID to localStorage for later use
+      const appId = import.meta.env.VITE_AGORA_APP_ID;
+      localStorage.setItem('appId', appId);
       
-      // When joining, we don't need to save the room ID again since it already exists
-      navigate(`/room/${roomId}`);
+      // If this is the room creator, allow direct access
+      if (isCreator) {
+        console.log('User is room creator, allowing direct access');
+        // Use the Agora App ID from environment variables
+        setCredentials(appId, roomId, null);
+        setUser({
+          id: uniqueId,
+          name: name.trim(),
+          email: ''
+        });
+        
+        // Save user name to localStorage
+        localStorage.setItem(`user_${uniqueId}`, name.trim());
+        
+        navigate(`/room/${roomId}`);
+      } else {
+        // If not the creator, send a join request
+        console.log('User is not room creator, creating join request');
+        const joinRequest: JoinRequest = {
+          id: uniqueId,
+          userName: name.trim(),
+          roomId,
+          timestamp: Date.now(),
+          status: 'pending'
+        };
+        
+        console.log('Creating join request:', joinRequest);
+        addJoinRequest(joinRequest);
+        setPendingApproval(true);
+        setWaitingForApproval(true);
+        
+        // Set user info in store for later use if approved
+        setUser({
+          id: uniqueId,
+          name: name.trim(),
+          email: ''
+        });
+        
+        // Save user name to localStorage
+        localStorage.setItem(`user_${uniqueId}`, name.trim());
+        
+        // Debug: Check if join request was added to store
+        setTimeout(() => {
+          const state = useStore.getState();
+          console.log('Store state after adding join request:', {
+            joinRequests: state.joinRequests,
+            pendingApproval: state.pendingApproval
+          });
+        }, 500);
+      }
     } catch (err) {
       console.error('Join error:', err);
       setError('Failed to join the meeting. Please try again.');
@@ -150,9 +215,14 @@ export const Join = () => {
     try {
       const uniqueId = generateUniqueId();
       saveUser(uniqueId, name.trim());
+      
+      // Save Agora App ID to localStorage for later use
+      const appId = import.meta.env.VITE_AGORA_APP_ID;
+      localStorage.setItem('appId', appId);
+      
       // Use the Agora App ID from environment variables
-      setCredentials(import.meta.env.VITE_AGORA_APP_ID, roomId, null);
-      useStore.getState().setUser({
+      setCredentials(appId, roomId, null);
+      setUser({
         id: uniqueId,
         name: name.trim(),
         email: ''
@@ -166,6 +236,13 @@ export const Join = () => {
       const roomCreators = roomCreatorsData ? JSON.parse(roomCreatorsData) : {};
       roomCreators[roomId] = uniqueId;
       localStorage.setItem('roomCreators', JSON.stringify(roomCreators));
+      
+      console.log('Room created:', { 
+        roomId, 
+        userId: uniqueId, 
+        userName: name.trim(),
+        roomCreators
+      });
       
       navigate(`/room/${roomId}`);
     } catch (err) {
@@ -199,219 +276,187 @@ export const Join = () => {
     }
   };
 
-  useEffect(() => {
-    if (showCreateForm) {
-      const newRoomId = getUniqueRoomId();
-      setRoomId(newRoomId);
-    } else {
-      // Clear room ID when going back to join form unless there's one in the URL
-      const params = new URLSearchParams(location.search);
-      const roomParam = params.get('room');
-      setRoomId(roomParam || '');
-    }
-  }, [showCreateForm, location.search]);
-
-  // Load saved user name on component mount
-  useEffect(() => {
-    const savedName = localStorage.getItem('userName');
-    if (savedName) {
-      setName(savedName);
-    }
-  }, []);
+  // If waiting for approval, show waiting room
+  if (waitingForApproval) {
+    return <WaitingRoom roomId={roomId} userName={name} userId={userId} />;
+  }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-secondary-900 text-secondary-900 dark:text-white">
-      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-lg p-8 border border-gray-100 dark:border-secondary-700">
-          <button
-            onClick={() => {
-              if (showCreateForm) {
-                setShowCreateForm(false);
-              } else {
-                navigate('/');
-              }
-            }}
-            className="flex items-center text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-white mb-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {showCreateForm ? 'Back to Join' : 'Back to Home'}
-          </button>
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      {/* Header */}
+      <header className="p-4 flex items-center">
+        <button 
+          onClick={() => navigate('/')} 
+          className="mr-4 p-2 rounded-full hover:bg-slate-800 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5 text-slate-300" />
+        </button>
+        <div className="flex items-center">
+          <Video className="h-6 w-6 text-blue-500 mr-2" />
+          <h1 className="text-xl font-semibold text-white">MeetFlow</h1>
+        </div>
+      </header>
 
-          <div className="flex items-center justify-center mb-8">
-            <Video className="w-12 h-12 text-wolt-blue" />
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          {/* Join or Create Toggle */}
+          <div className="bg-slate-800 p-1 rounded-lg flex mb-6">
+            <button
+              onClick={() => setShowCreateForm(false)}
+              className={`flex-1 py-2 rounded-md text-center transition-colors ${
+                !showCreateForm ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              Join a Meeting
+            </button>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className={`flex-1 py-2 rounded-md text-center transition-colors ${
+                showCreateForm ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              Create a Meeting
+            </button>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <p className="text-red-200 text-sm flex items-start">
+                <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
+              </p>
+            </div>
+          )}
+
+          {/* Join Form */}
           {!showCreateForm ? (
-            <>
-              <h1 className="text-3xl font-bold text-center mb-2">
-                <span className="bg-gradient-to-r from-wolt-blue via-wolt-teal to-wolt-blue bg-clip-text text-transparent">
-                  Join Meeting
-                </span>
-              </h1>
-              <p className="text-secondary-600 dark:text-secondary-400 text-center mb-8">Enter your name to join the meeting</p>
-              
-              {error && (
-                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg">
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleJoin} className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    Your Name
-                  </label>
+            <form onSubmit={handleJoin} className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="roomId" className="block text-sm font-medium text-slate-300 mb-1">
+                  Meeting Code
+                </label>
+                <input
+                  type="text"
+                  id="roomId"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  placeholder="Enter meeting code"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
+                  disabled={isLoading}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center justify-center"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Users className="h-5 w-5 mr-2" />
+                    Join Meeting
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            // Create Form
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label htmlFor="create-name" className="block text-sm font-medium text-slate-300 mb-1">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  id="create-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label htmlFor="create-roomId" className="block text-sm font-medium text-slate-300 mb-1">
+                  Meeting Code (Optional)
+                </label>
+                <div className="flex">
                   <input
                     type="text"
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-2 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-wolt-blue"
-                    placeholder="Enter your name"
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="roomId" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    Meeting Code
-                  </label>
-                  <input
-                    type="text"
-                    id="roomId"
+                    id="create-roomId"
                     value={roomId}
                     onChange={(e) => setRoomId(e.target.value)}
-                    className="w-full px-4 py-2 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-wolt-blue"
-                    placeholder="Enter meeting code"
+                    placeholder="Auto-generate if empty"
+                    className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
                     disabled={isLoading}
-                    required
                   />
-                </div>
-
-                <div className="flex flex-col space-y-3">
-                  <button
-                    type="submit"
-                    disabled={isLoading || !roomId}
-                    className="w-full bg-wolt-blue hover:bg-blue-600 text-white py-3 rounded-lg transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      'Join Meeting'
-                    )}
-                  </button>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-secondary-200 dark:border-secondary-700"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white dark:bg-secondary-800 text-secondary-500 dark:text-secondary-400">or</span>
-                    </div>
-                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowCreateForm(true)}
+                    onClick={() => setRoomId(getUniqueRoomId())}
+                    className="px-3 py-2 bg-slate-600 border border-slate-500 rounded-r-lg hover:bg-slate-500 transition-colors"
                     disabled={isLoading}
-                    className="w-full bg-white dark:bg-secondary-800 hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-900 dark:text-white py-3 rounded-lg transition-all border border-secondary-200 dark:border-secondary-700 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Plus className="w-5 h-5 text-wolt-teal" />
-                    <span>Create New Meeting</span>
+                    <Plus className="h-5 w-5 text-slate-200" />
                   </button>
                 </div>
-              </form>
-            </>
-          ) : (
-            <>
-              <h1 className="text-3xl font-bold text-center mb-2">
-                <span className="bg-gradient-to-r from-wolt-blue via-wolt-teal to-wolt-blue bg-clip-text text-transparent">
-                  Create Meeting
-                </span>
-              </h1>
-              <p className="text-secondary-600 dark:text-secondary-400 text-center mb-8">Set up a new video meeting</p>
-              
-              {error && (
-                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg">
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+              {roomId && (
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="flex-1 py-2 px-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors flex items-center justify-center"
+                    disabled={isLoading}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    {copySuccess ? 'Copied!' : 'Copy Link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="flex-1 py-2 px-3 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors flex items-center justify-center"
+                    disabled={isLoading}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                  </button>
                 </div>
               )}
-
-              <form onSubmit={handleCreate} className="space-y-6">
-                <div>
-                  <label htmlFor="createName" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    id="createName"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-2 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg text-secondary-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-wolt-blue"
-                    placeholder="Enter your name"
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-secondary-700 dark:text-secondary-300">Meeting Code</span>
-                    <span className="text-sm font-mono text-wolt-blue dark:text-wolt-teal">{roomId}</span>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      type="button"
-                      onClick={handleCopyLink}
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-white dark:bg-secondary-800 hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-900 dark:text-white rounded-lg transition-all border border-secondary-200 dark:border-secondary-700"
-                    >
-                      <Copy className="w-4 h-4 text-wolt-blue" />
-                      <span>{copySuccess ? 'Copied!' : 'Copy Link'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleShare}
-                      className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 bg-white dark:bg-secondary-800 hover:bg-secondary-100 dark:hover:bg-secondary-700 text-secondary-900 dark:text-white rounded-lg transition-all border border-secondary-200 dark:border-secondary-700"
-                    >
-                      <Share2 className="w-4 h-4 text-wolt-teal" />
-                      <span>Share</span>
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-wolt-blue hover:bg-blue-600 text-white py-3 rounded-lg transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Users className="w-5 h-5" />
-                      <span>Start Meeting</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="mt-6 p-4 bg-teal-50 dark:bg-teal-900/10 rounded-lg border border-teal-100 dark:border-teal-800/20">
-                  <div className="flex items-start space-x-3">
-                    <Info className="w-5 h-5 text-wolt-teal flex-shrink-0 mt-0.5" />
-                    <div className="space-y-2">
-                      <p className="text-sm text-secondary-700 dark:text-secondary-300">Meeting Features:</p>
-                      <ul className="text-xs text-secondary-600 dark:text-secondary-400 space-y-1">
-                        <li>• HD video and crystal-clear audio</li>
-                        <li>• Screen sharing and chat</li>
-                        <li>• No time limits</li>
-                        <li>• Up to 100 participants</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </>
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center justify-center"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Video className="h-5 w-5 mr-2" />
+                    Create Meeting
+                  </>
+                )}
+              </button>
+            </form>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

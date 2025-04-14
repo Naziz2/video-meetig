@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Video, Shield, Users, Globe, Zap, Clock, Laptop } from 'lucide-react';
+import { ArrowRight, Shield, Users, Globe, Zap, Clock, Laptop } from 'lucide-react';
+import logo from '../assets/images/logo.png';
 
 // Combine all logos into one array
 const allLogos = [
@@ -135,11 +136,14 @@ export const Home = () => {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center min-h-[80vh] flex flex-col justify-center items-center py-24 md:py-32">
-          <h1 className="text-6xl sm:text-7xl md:text-8xl font-serif font-bold text-secondary-900 dark:text-white mb-6">
-            <span className="bg-gradient-to-r from-wolt-blue via-wolt-teal to-wolt-blue bg-clip-text text-transparent">
-              Vivid
-            </span>
-          </h1>
+          <div className="flex items-center justify-center mb-6">
+            <img src={logo} alt="Vivid Logo" className="h-20 md:h-24 mr-4" />
+            <h1 className="text-6xl sm:text-7xl md:text-8xl font-serif font-bold text-secondary-900 dark:text-white">
+              <span className="bg-gradient-to-r from-wolt-blue via-wolt-teal to-wolt-blue bg-clip-text text-transparent">
+                Vivid
+              </span>
+            </h1>
+          </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-secondary-700 dark:text-secondary-200">
             Professional meetings for{' '}
             <span className="text-wolt-blue inline-block min-w-[180px]">{typedText}</span>

@@ -8,15 +8,18 @@ import { ParticipantsSidebar } from '../components/room/ParticipantsSidebar';
 import { TranscriptPanel } from '../components/TranscriptPanel';
 import { useAgoraClient } from '../hooks/useAgoraClient';
 import { useRecording } from '../hooks/useRecording';
+import { JoinRequestPopup } from '../components/JoinRequestPopup';
+import { JoinRequest } from '../types/room';
 
 export const Room = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { appId, setCredentials, settings, user } = useStore();
+  const { appId, setCredentials, settings, user, joinRequests, updateJoinRequest } = useStore();
   const [showParticipants, setShowParticipants] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('ar-TN');
+  const [currentRequest, setCurrentRequest] = useState<JoinRequest | null>(null);
 
   // Initialize credentials
   useEffect(() => {
@@ -24,6 +27,111 @@ export const Room = () => {
       setCredentials(appId, id, null);
     }
   }, [id, appId, setCredentials]);
+
+  // Check if current user is room creator
+  const isRoomCreator = () => {
+    const roomCreatorsData = localStorage.getItem('roomCreators');
+    const roomCreators = roomCreatorsData ? JSON.parse(roomCreatorsData) : {};
+    const isCreator = roomCreators[id || ''] === user?.id;
+    console.log('Room creator check:', { 
+      roomId: id, 
+      userId: user?.id, 
+      isCreator, 
+      roomCreators 
+    });
+    return isCreator;
+  };
+
+  // Get join requests from localStorage
+  const getJoinRequestsFromLocalStorage = (): JoinRequest[] => {
+    const requests = localStorage.getItem('joinRequests');
+    return requests ? JSON.parse(requests) : [];
+  };
+
+  // Check for pending join requests on component mount
+  useEffect(() => {
+    if (isRoomCreator() && id) {
+      console.log('Checking for pending join requests on room mount');
+      const localStorageRequests = getJoinRequestsFromLocalStorage();
+      console.log('Join requests from localStorage:', localStorageRequests);
+      
+      const pendingRequest = localStorageRequests.find(
+        req => req.roomId === id && req.status === 'pending'
+      );
+      
+      console.log('Pending request found on mount:', pendingRequest);
+      
+      if (pendingRequest && !currentRequest) {
+        console.log('Setting current request from localStorage');
+        setCurrentRequest(pendingRequest);
+      }
+    }
+  }, [id, user?.id]);
+
+  // Handle join requests
+  useEffect(() => {
+    console.log('Join requests updated:', { 
+      joinRequests, 
+      isCreator: isRoomCreator(), 
+      userId: user?.id,
+      roomId: id
+    });
+    
+    if (isRoomCreator() && joinRequests.length > 0) {
+      const pendingRequest = joinRequests.find(
+        req => req.roomId === id && req.status === 'pending'
+      );
+      
+      console.log('Pending request check:', { 
+        pendingRequest, 
+        roomId: id, 
+        joinRequests 
+      });
+      
+      if (pendingRequest && !currentRequest) {
+        console.log('Setting current request:', pendingRequest);
+        setCurrentRequest(pendingRequest);
+      }
+    }
+  }, [joinRequests, id, currentRequest, user?.id]);
+
+  // Poll for new join requests periodically
+  useEffect(() => {
+    if (isRoomCreator() && id) {
+      console.log('Setting up polling for join requests');
+      
+      const checkForNewRequests = () => {
+        const localStorageRequests = getJoinRequestsFromLocalStorage();
+        const pendingRequest = localStorageRequests.find(
+          req => req.roomId === id && req.status === 'pending' && !currentRequest
+        );
+        
+        if (pendingRequest && !currentRequest) {
+          console.log('New pending request found during polling:', pendingRequest);
+          setCurrentRequest(pendingRequest);
+        }
+      };
+      
+      // Check every 5 seconds
+      const interval = setInterval(checkForNewRequests, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [id, currentRequest, user?.id]);
+
+  // Handle request approval
+  const handleApproveRequest = (requestId: string) => {
+    console.log('Approving request:', requestId);
+    updateJoinRequest(requestId, 'approved');
+    setCurrentRequest(null);
+  };
+
+  // Handle request rejection
+  const handleRejectRequest = (requestId: string) => {
+    console.log('Rejecting request:', requestId);
+    updateJoinRequest(requestId, 'rejected');
+    setCurrentRequest(null);
+  };
 
   // Language options for translation
   const languageOptions = [
@@ -62,7 +170,8 @@ export const Room = () => {
   } = useAgoraClient({
     appId,
     channelId: id,
-    userId: user?.name || null,
+    userId: user?.id || null,
+    userName: user?.name || null,
     videoQuality: settings.videoQuality as '360p' | '480p' | '720p' | '1080p',
     audioInput: settings.audioInput,
     videoInput: settings.videoInput
@@ -114,8 +223,27 @@ export const Room = () => {
     };
   }, [isRecording, toggleRecording]);
 
+  // Log component mount
+  useEffect(() => {
+    console.log('Room component mounted:', {
+      roomId: id,
+      userId: user?.id,
+      isCreator: isRoomCreator(),
+      joinRequests
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Join Request Popup */}
+      {currentRequest && (
+        <JoinRequestPopup
+          request={currentRequest}
+          onApprove={handleApproveRequest}
+          onReject={handleRejectRequest}
+        />
+      )}
+
       {/* Top Bar */}
       <TopBar
         roomId={id}

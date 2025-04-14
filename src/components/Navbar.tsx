@@ -3,6 +3,7 @@ import { Menu, X, User } from 'lucide-react';
 import { useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { useStore } from '../store/useStore';
+import logo from '../assets/images/logo.png';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -14,6 +15,7 @@ export const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           <div className="flex-shrink-0">
             <Link to="/" className="flex items-center space-x-2">
+              <img src={logo} alt="Vivid Logo" className="h-10 w-auto" />
               <span className="text-2xl font-serif font-bold bg-gradient-to-r from-wolt-blue via-wolt-teal to-wolt-blue bg-clip-text text-transparent">
                 Vivid
               </span>

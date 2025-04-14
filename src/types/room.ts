@@ -19,3 +19,11 @@ export interface RemoteUser extends BaseUser {
 }
 
 export type RoomUser = LocalUser | RemoteUser;
+
+export interface JoinRequest {
+  id: string;
+  userName: string;
+  roomId: string;
+  timestamp: number;
+  status: 'pending' | 'approved' | 'rejected';
+}

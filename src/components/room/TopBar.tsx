@@ -1,5 +1,7 @@
 import React from 'react';
 import { Share2, Users, MessageSquare } from 'lucide-react';
+// Import the logo using Vite's asset handling
+import vividLogo from '../../assets/images/logo.png';
 
 interface TopBarProps {
   roomId: string | undefined;
@@ -25,7 +27,14 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <div className="fixed top-0 left-0 right-0 bg-slate-800/95 backdrop-blur-sm text-white p-4 flex items-center justify-between z-10 border-b border-slate-700">
       <div className="flex items-center space-x-4">
-        <h1 className="text-lg font-semibold text-slate-100">Meeting: {roomId}</h1>
+        <div className="flex items-center">
+          <img 
+            src={vividLogo} 
+            alt="App Logo" 
+            className="h-8 mr-3" 
+          />
+          <h1 className="text-lg font-semibold text-slate-100">Meeting: {roomId}</h1>
+        </div>
       </div>
       <div className="flex items-center space-x-4">
         <select

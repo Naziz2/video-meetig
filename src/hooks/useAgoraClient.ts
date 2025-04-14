@@ -12,6 +12,7 @@ interface UseAgoraClientProps {
   appId: string;
   channelId: string | undefined;
   userId: string | null;
+  userName: string | null;
   videoQuality: '360p' | '480p' | '720p' | '1080p';
   audioInput: string;
   videoInput: string;
@@ -24,10 +25,14 @@ interface VideoConfig {
   bitrate: number;
 }
 
+// Store user names globally to persist between component renders
+const userNameMap: Record<string, string> = {};
+
 export const useAgoraClient = ({
   appId,
   channelId,
   userId,
+  userName,
   videoQuality,
   audioInput,
   videoInput
@@ -41,6 +46,13 @@ export const useAgoraClient = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
 
+  // Store the current user's name in the global map
+  useEffect(() => {
+    if (userId && userName) {
+      userNameMap[userId] = userName;
+    }
+  }, [userId, userName]);
+
   useEffect(() => {
     let localTracks: [IMicrophoneAudioTrack, ICameraVideoTrack] | null = null;
     
@@ -52,9 +64,59 @@ export const useAgoraClient = ({
     setClient(client);
 
     const init = async (channelName: string) => {
+      // Set up a custom message channel for user names
+      // This could be implemented with localStorage for local testing
+      // or with a proper backend in production
+      const broadcastUserName = () => {
+        if (userId && userName) {
+          try {
+            // Store in localStorage for demo purposes
+            // In a real app, you would use RTM or a backend
+            const existingNames = JSON.parse(localStorage.getItem('agoraUserNames') || '{}');
+            existingNames[userId] = userName;
+            localStorage.setItem('agoraUserNames', JSON.stringify(existingNames));
+            
+            // Also update our in-memory map
+            userNameMap[userId] = userName;
+            
+            console.log('Broadcasted user name:', { userId, userName });
+          } catch (e) {
+            console.error('Error broadcasting user name:', e);
+          }
+        }
+      };
+      
+      // Listen for user name updates
+      const checkForUserNames = () => {
+        try {
+          const storedNames = JSON.parse(localStorage.getItem('agoraUserNames') || '{}');
+          
+          // Update our users with the names
+          setUsers(prevUsers => {
+            let updated = false;
+            const newUsers = prevUsers.map(user => {
+              const uid = user.uid.toString();
+              if (storedNames[uid] && user.name !== storedNames[uid]) {
+                updated = true;
+                return { ...user, name: storedNames[uid] };
+              }
+              return user;
+            });
+            
+            return updated ? newUsers : prevUsers;
+          });
+        } catch (e) {
+          console.error('Error checking for user names:', e);
+        }
+      };
+
       client.on('user-published', async (user, mediaType) => {
         try {
           await client.subscribe(user, mediaType);
+          
+          // Get a user-friendly name
+          const uid = user.uid.toString();
+          const remoteName = userNameMap[uid] || `User ${uid}`;
           
           if (mediaType === 'video') {
             setUsers(prevUsers => {
@@ -70,7 +132,7 @@ export const useAgoraClient = ({
                 uid: user.uid,
                 videoTrack: user.videoTrack,
                 audioTrack: user.audioTrack,
-                name: user.uid
+                name: remoteName
               }];
             });
           }
@@ -92,10 +154,13 @@ export const useAgoraClient = ({
                 uid: user.uid,
                 videoTrack: user.videoTrack,
                 audioTrack: user.audioTrack,
-                name: user.uid
+                name: remoteName
               }];
             });
           }
+          
+          // Check for user names periodically
+          checkForUserNames();
         } catch (error) {
           console.error('Error on user-published:', error);
         }
@@ -130,7 +195,17 @@ export const useAgoraClient = ({
       });
 
       try {
+        // Join the channel
         await client.join(appId, channelName, null, userId || 'Anonymous');
+        
+        // Broadcast our user name after joining
+        broadcastUserName();
+        
+        // Set up an interval to periodically broadcast our name and check for others
+        const nameInterval = setInterval(() => {
+          broadcastUserName();
+          checkForUserNames();
+        }, 5000);
 
         const videoConfigs: Record<string, VideoConfig> = {
           '360p': { 
@@ -185,6 +260,10 @@ export const useAgoraClient = ({
         setTracks(localTracks);
         await client.publish([audioTrack, videoTrack]);
         setStart(true);
+        
+        return () => {
+          clearInterval(nameInterval);
+        };
       } catch (error) {
         console.error('Error joining channel:', error);
       }
@@ -202,70 +281,69 @@ export const useAgoraClient = ({
           localTracks[0].close();
           localTracks[1].close();
         }
-        if (screenTrack) {
-          screenTrack.close();
-        }
       }
     };
-  }, [appId, channelId, userId, videoQuality, audioInput, videoInput]);
+  }, [channelId, appId, userId, userName, audioInput, videoInput, videoQuality]);
 
-  const toggleMute = async () => {
-    if (!tracks) return;
-    
-    const newState = !isMuted;
-    await tracks[0].setEnabled(!newState);
-    setIsMuted(newState);
+  const toggleMute = () => {
+    if (tracks && tracks[0]) {
+      if (isMuted) {
+        tracks[0].setEnabled(true);
+      } else {
+        tracks[0].setEnabled(false);
+      }
+      setIsMuted(!isMuted);
+    }
   };
 
-  const toggleVideo = async () => {
-    if (!tracks) return;
-    
-    const newState = !isVideoOff;
-    await tracks[1].setEnabled(!newState);
-    setIsVideoOff(newState);
+  const toggleVideo = () => {
+    if (tracks && tracks[1]) {
+      if (isVideoOff) {
+        tracks[1].setEnabled(true);
+      } else {
+        tracks[1].setEnabled(false);
+      }
+      setIsVideoOff(!isVideoOff);
+    }
   };
 
   const toggleScreenShare = async () => {
-    if (!client || !tracks) return;
-
-    if (isScreenSharing && screenTrack) {
-      try {
-        await client.unpublish(screenTrack);
+    if (isScreenSharing) {
+      if (screenTrack) {
+        await client?.unpublish(screenTrack);
         screenTrack.close();
-        await client.publish(tracks[1]); // Republish camera
         setScreenTrack(null);
-        setIsScreenSharing(false);
-      } catch (error) {
-        console.error('Error stopping screen share:', error);
       }
+      setIsScreenSharing(false);
     } else {
       try {
-        await client.unpublish(tracks[1]); // Unpublish camera first
-        
-        const screenVideoTrack = await AgoraRTC.createScreenVideoTrack({
-          encoderConfig: "1080p_2", // Use high quality preset
-          optimizationMode: "detail" // Optimize for detail
+        const track = await AgoraRTC.createScreenVideoTrack({
+          encoderConfig: {
+            width: 1920,
+            height: 1080,
+            frameRate: 15,
+            bitrateMin: 1000,
+            bitrateMax: 2000
+          }
         });
-
-        if (Array.isArray(screenVideoTrack)) {
-          // If screen sharing returns both video and audio tracks
-          await client.publish(screenVideoTrack[0]);
-          setScreenTrack(screenVideoTrack[0]);
-        } else {
-          // If screen sharing returns only video track
-          await client.publish(screenVideoTrack);
-          setScreenTrack(screenVideoTrack);
-        }
         
+        // Handle the case where it returns an array of tracks
+        const videoTrack = Array.isArray(track) ? track[0] : track;
+        
+        await client?.publish(videoTrack);
+        setScreenTrack(videoTrack);
         setIsScreenSharing(true);
+        
+        // Handle when user stops screen sharing via browser UI
+        videoTrack.on('track-ended', () => {
+          client?.unpublish(videoTrack);
+          videoTrack.close();
+          setScreenTrack(null);
+          setIsScreenSharing(false);
+        });
       } catch (error) {
         console.error('Error sharing screen:', error);
-        // If screen sharing fails, ensure camera is republished
-        try {
-          await client.publish(tracks[1]);
-        } catch (e) {
-          console.error('Error republishing camera:', e);
-        }
+        setIsScreenSharing(false);
       }
     }
   };
