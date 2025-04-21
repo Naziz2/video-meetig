@@ -219,29 +219,7 @@ export const Join = () => {
       const uniqueId = generateUniqueId();
       saveUser(uniqueId, name.trim());
       
-      // Save meeting to Supabase
-      const { error: dbError } = await supabase
-        .from('meetings')
-        .insert([{
-          title: 'New Meeting',
-          description: 'Meeting created from join page',
-          start_time: new Date().toISOString(),
-          end_time: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
-          room_id: finalRoomId,
-          host_id: uniqueId,
-          participants: [uniqueId],
-          status: 'scheduled',
-          is_private: false,
-          meeting_link: `${window.location.origin}/join?room=${finalRoomId}`,
-          created_at: new Date().toISOString()
-        }]);
-      if (dbError) {
-        console.error('Database error:', dbError);
-        setError('Failed to save meeting to database. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-      
+
       // Save Agora App ID to localStorage for later use
       const appId = import.meta.env.VITE_AGORA_APP_ID;
       localStorage.setItem('appId', appId);
