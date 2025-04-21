@@ -4,6 +4,7 @@ import { Video, ArrowLeft, Loader2, Plus, Copy, Share2, Users, Info } from 'luci
 import { useStore } from '../store/useStore';
 import { WaitingRoom } from '../components/WaitingRoom';
 import { JoinRequest } from '../types/room';
+import { supabase } from '../lib/supabase';
 
 // Helper function to generate a unique ID for users
 const generateUniqueId = () => {
@@ -105,11 +106,15 @@ export const Join = () => {
       return;
     }
 
-    // Validate that the room ID exists in the valid rooms list
-    const roomIds = localStorage.getItem('roomIds');
-    const validRoomIds = roomIds ? JSON.parse(roomIds) : [];
-    if (!validRoomIds.includes(roomId)) {
+    // Validate that the room ID exists in the Supabase meetings table
+    const { data, error: dbError } = await supabase
+      .from('meetings')
+      .select('id')
+      .eq('id', roomId)
+      .single();
+    if (dbError || !data) {
       setError('Invalid meeting code. This meeting does not exist.');
+      setIsLoading(false);
       return;
     }
 
@@ -202,13 +207,11 @@ export const Join = () => {
       return;
     }
 
-    // Ensure we have a unique room ID
-    if (!roomId || !isRoomIdUnique(roomId)) {
-      const newRoomId = getUniqueRoomId();
-      setRoomId(newRoomId);
-    } else {
-      // Save the current room ID if it's unique
-      saveRoomId(roomId);
+    // Ensure we have a unique room ID (Supabase version)
+    let finalRoomId = roomId;
+    if (!finalRoomId || !isRoomIdUnique(finalRoomId)) {
+      finalRoomId = getUniqueRoomId();
+      setRoomId(finalRoomId);
     }
 
     setIsLoading(true);
@@ -216,12 +219,22 @@ export const Join = () => {
       const uniqueId = generateUniqueId();
       saveUser(uniqueId, name.trim());
       
+      // Save meeting to Supabase
+      const { error: dbError } = await supabase
+        .from('meetings')
+        .insert([{ id: finalRoomId, host_id: uniqueId, created_at: new Date().toISOString() }]);
+      if (dbError) {
+        setError('Failed to save meeting to database. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      
       // Save Agora App ID to localStorage for later use
       const appId = import.meta.env.VITE_AGORA_APP_ID;
       localStorage.setItem('appId', appId);
       
       // Use the Agora App ID from environment variables
-      setCredentials(appId, roomId, null);
+      setCredentials(appId, finalRoomId, null);
       setUser({
         id: uniqueId,
         name: name.trim(),
@@ -231,20 +244,20 @@ export const Join = () => {
       // Save user name to localStorage
       localStorage.setItem(`user_${uniqueId}`, name.trim());
       
-      // Mark this user as the creator of the room
+      // Mark this user as the creator of the room (local only, for legacy logic)
       const roomCreatorsData = localStorage.getItem('roomCreators');
       const roomCreators = roomCreatorsData ? JSON.parse(roomCreatorsData) : {};
-      roomCreators[roomId] = uniqueId;
+      roomCreators[finalRoomId] = uniqueId;
       localStorage.setItem('roomCreators', JSON.stringify(roomCreators));
       
       console.log('Room created:', { 
-        roomId, 
+        roomId: finalRoomId, 
         userId: uniqueId, 
         userName: name.trim(),
         roomCreators
       });
       
-      navigate(`/room/${roomId}`);
+      navigate(`/room/${finalRoomId}`);
     } catch (err) {
       console.error('Create error:', err);
       setError('Failed to create the meeting. Please try again.');
