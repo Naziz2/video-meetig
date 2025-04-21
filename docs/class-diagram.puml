@@ -1,0 +1,383 @@
+@startuml Video Meeting Application - Class Diagram
+
+skinparam classFontColor #FFFFFF
+skinparam classFontSize 14
+skinparam classFontName Arial
+skinparam classBackgroundColor #3498DB
+skinparam classBorderColor #2980B9
+skinparam classAttributeFontSize 12
+skinparam noteBackgroundColor #F1C40F
+skinparam noteBorderColor #F39C12
+
+package "Components" {
+  class Room {
+    -id: string
+    -users: IAgoraRTCRemoteUser[]
+    -showParticipants: boolean
+    -showChat: boolean
+    -showTranscript: boolean
+    -isRecording: boolean
+    -recordingStatus: string
+    -selectedLanguage: string
+    -currentRequest: JoinRequest | null
+    -client: IAgoraRTCClient
+    -tracks: IAgoraRTCRemoteTrack[]
+    -screenTrack: ILocalVideoTrack | null
+    -isMuted: boolean
+    -isVideoOff: boolean
+    -isScreenSharing: boolean
+    +toggleMute(): void
+    +toggleVideo(): void
+    +toggleScreenShare(): Promise<void>
+    +toggleRecording(): void
+    +handleLeave(): Promise<void>
+    +handleApproveRequest(requestId: string): void
+    +handleRejectRequest(requestId: string): void
+    +handleShare(): void
+    +handleSettingsOpen(): void
+    +isRoomCreator(): boolean
+    +checkForNewRequests(): void
+    +getJoinRequestsFromLocalStorage(): JoinRequest[]
+  }
+
+  class VideoGrid {
+    -users: IAgoraRTCRemoteUser[]
+    -client: IAgoraRTCClient
+    -tracks: IAgoraRTCRemoteTrack[]
+    -screenTrack: ILocalVideoTrack | null
+    -isScreenSharing: boolean
+    -isMuted: boolean
+    -isVideoOff: boolean
+    -userName: string
+    +calculateLayout(count: number): {rows: number, cols: number}
+    +renderLocalVideo(): JSX.Element
+    +renderRemoteVideos(): JSX.Element[]
+    +renderScreenShare(): JSX.Element
+    +render(): JSX.Element
+  }
+
+  class VideoPlayer {
+    -user: IAgoraRTCRemoteUser
+    -videoTrack: ILocalVideoTrack | IRemoteVideoTrack | null
+    -audioTrack: ILocalAudioTrack | IRemoteAudioTrack | null
+    -isMuted: boolean
+    -isVideoOff: boolean
+    -userName: string
+    -quality: '360p' | '480p' | '720p' | '1080p'
+    +componentDidMount(): void
+    +componentDidUpdate(prevProps: VideoPlayerProps): void
+    +componentWillUnmount(): void
+    +setupVideoTrack(): void
+    +setupAudioTrack(): void
+    +handleVideoTrackEnded(): void
+    +render(): JSX.Element
+  }
+
+  class Controls {
+    -isMuted: boolean
+    -isVideoOff: boolean
+    -isScreenSharing: boolean
+    -isRecording: boolean
+    -recordingStatus: string
+    +onMuteToggle(): void
+    +onVideoToggle(): void
+    +onScreenShareToggle(): void
+    +onRecordToggle(): void
+    +onLeave(): void
+    +onSettingsOpen(): void
+    +render(): JSX.Element
+  }
+
+  class TranscriptPanel {
+    -selectedLanguage: string
+    -messages: Message[]
+    -recognition: SpeechRecognition
+    -isListening: boolean
+    -currentSpeaker: string
+    -roomId: string
+    +startListening(): void
+    +stopListening(): void
+    +handleLanguageChange(language: string): void
+    +loadMessages(roomId: string): Promise<void>
+    +saveMessage(text: string, confidence: number): Promise<void>
+    +handleClearTranscript(): void
+    +handleExportTranscript(): void
+    +render(): JSX.Element
+  }
+
+  class JoinRequestPopup {
+    -request: JoinRequest
+    -isProcessing: boolean
+    +onApprove(): Promise<void>
+    +onReject(): Promise<void>
+    +render(): JSX.Element
+  }
+
+  class ParticipantsSidebar {
+    -isVisible: boolean
+    -users: IAgoraRTCRemoteUser[]
+    -isMuted: boolean
+    -isVideoOff: boolean
+    -tracks: IAgoraRTCRemoteTrack[]
+    +onClose(): void
+    +renderParticipant(user: IAgoraRTCRemoteUser): JSX.Element
+    +render(): JSX.Element
+  }
+
+  class TopBar {
+    -roomId: string
+    -selectedLanguage: string
+    -languageOptions: {value: string, label: string}[]
+    -participantsCount: number
+    +onLanguageChange(language: string): void
+    +onShareClick(): void
+    +onParticipantsToggle(): void
+    +onChatToggle(): void
+    +formatRoomId(roomId: string): string
+    +render(): JSX.Element
+  }
+}
+
+package "Hooks" {
+  class useAgoraClient {
+    -client: IAgoraRTCClient
+    -users: IAgoraRTCRemoteUser[]
+    -tracks: IAgoraRTCRemoteTrack[]
+    -screenTrack: ILocalVideoTrack | null
+    -isMuted: boolean
+    -isVideoOff: boolean
+    -isScreenSharing: boolean
+    -localAudioTrack: ILocalAudioTrack | null
+    -localVideoTrack: ILocalVideoTrack | null
+    -appId: string
+    -channel: string
+    -token: string | null
+    -uid: string
+    -videoQuality: '360p' | '480p' | '720p' | '1080p'
+    -audioInput: string
+    -videoInput: string
+    +join(): Promise<void>
+    +leave(): Promise<void>
+    +toggleMute(): void
+    +toggleVideo(): void
+    +toggleScreenShare(): Promise<void>
+    +createLocalTracks(audioInput: string, videoInput: string): Promise<[ILocalAudioTrack, ILocalVideoTrack]>
+    +handleUserPublished(user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video'): Promise<void>
+    +handleUserUnpublished(user: IAgoraRTCRemoteUser): void
+    +handleUserLeft(user: IAgoraRTCRemoteUser): void
+    +setVideoQuality(quality: '360p' | '480p' | '720p' | '1080p'): void
+    +setAudioInput(deviceId: string): Promise<void>
+    +setVideoInput(deviceId: string): Promise<void>
+  }
+
+  class useRecording {
+    -isRecording: boolean
+    -recordingStatus: string
+    -recordingTime: number
+    -recordingInterval: number | null
+    +toggleRecording(): void
+    +formatRecordingTime(seconds: number): string
+    +startRecordingTimer(): void
+    +stopRecordingTimer(): void
+    +useEffect(): void
+  }
+}
+
+package "Utils" {
+  class RecordingUtils {
+    -mediaRecorder: MediaRecorder | null
+    -recordedChunks: Blob[]
+    -stream: MediaStream | null
+    -audioStream: MediaStream | null
+    -isRecordingActive: boolean
+    -isProcessingRecording: boolean
+    -permissionDeniedRecently: boolean
+    -canvasContext: CanvasRenderingContext2D | null
+    -recordingStartTime: number
+    +initRecording(): void
+    +attachEventListeners(): void
+    +toggleRecording(): void
+    +updateRecordButtonState(): void
+    +startRecording(): Promise<void>
+    +stopRecording(): void
+    +uploadRecording(file: File): void
+    +saveRecordingLocally(file: File): void
+    +saveRecordingToDatabase(fileUrl: string, fileSize: number, duration: number, roomId: string): Promise<void>
+    +addToGrid(mediaUrl: string, resourceType: string, fileName: string): void
+    +createCanvasStream(videos: HTMLVideoElement[], audioTrack: MediaStreamTrack): MediaStream
+    +arrangeVideosInGrid(canvas: HTMLCanvasElement, videos: HTMLVideoElement[], layout: {rows: number, cols: number}): void
+    +handleRecordingError(error: Error): void
+    +updateRecordingTimer(): void
+    +formatRecordingTime(seconds: number): string
+  }
+
+  class CanvasRecorder {
+    -canvas: HTMLCanvasElement
+    -context: CanvasRenderingContext2D
+    -videos: HTMLVideoElement[]
+    -audioTrack: MediaStreamTrack | null
+    -stream: MediaStream | null
+    -mediaRecorder: MediaRecorder | null
+    -chunks: Blob[]
+    -isRecording: boolean
+    -layout: {rows: number, cols: number}
+    +initialize(videos: HTMLVideoElement[], audioTrack: MediaStreamTrack): void
+    +startRecording(): void
+    +stopRecording(): Promise<Blob>
+    +calculateLayout(count: number): {rows: number, cols: number}
+    +drawFrame(): void
+    +drawVideoElement(video: HTMLVideoElement, x: number, y: number, width: number, height: number): void
+    +addVideoElement(video: HTMLVideoElement): void
+    +removeVideoElement(video: HTMLVideoElement): void
+    +cleanup(): void
+  }
+}
+
+package "Store" {
+  class Store {
+    -user: User | null
+    -appId: string
+    -channel: string
+    -token: string | null
+    -settings: Settings
+    -joinRequests: JoinRequest[]
+    -isAuthenticated: boolean
+    -isLoading: boolean
+    +setUser(user: User | null): void
+    +setCredentials(appId: string, channel: string, token: string | null): void
+    +updateSettings(settings: Partial<Settings>): void
+    +updateJoinRequest(request: JoinRequest): void
+    +addJoinRequest(request: JoinRequest): void
+    +removeJoinRequest(requestId: string): void
+    +setIsAuthenticated(isAuthenticated: boolean): void
+    +setIsLoading(isLoading: boolean): void
+    +getState(): StoreState
+    +subscribe(listener: (state: StoreState) => void): () => void
+  }
+}
+
+package "Models" {
+  class User {
+    -id: string
+    -name: string
+    -email: string
+    -avatar_url: string | null
+    -bio: string | null
+    -profile_slug: string | null
+    -visibility: 'public' | 'private'
+    -social_links: any[]
+    -theme: string
+    -created_at: string
+    -updated_at: string
+    -role: 'user' | 'admin' | null
+  }
+
+  class Meeting {
+    -id: string
+    -title: string
+    -description: string | null
+    -start_time: string
+    -end_time: string
+    -room_id: string
+    -host_id: string
+    -participants: string[]
+    -recurring: boolean
+    -recurrence_pattern: string | null
+    -status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled'
+    -is_private: boolean
+    -meeting_link: string | null
+    -password: string | null
+    -waiting_room_enabled: boolean
+    -recording_enabled: boolean
+    -transcription_enabled: boolean
+    -max_participants: number
+    -created_at: string
+    -updated_at: string
+  }
+
+  class Recording {
+    -id: string
+    -meeting_id: string | null
+    -room_id: string
+    -recorder_id: string
+    -file_url: string
+    -file_size: number
+    -duration: number
+    -format: string
+    -created_at: string
+    -youtube_url: string | null
+    -is_processed: boolean
+    -thumbnail_url: string | null
+  }
+
+  class Transcript {
+    -id: number
+    -text: string
+    -speaker: string
+    -speaker_id: string | null
+    -room_id: string
+    -meeting_id: string | null
+    -confidence: number
+    -language: string
+    -timestamp: string
+    -created_at: string
+  }
+
+  class JoinRequest {
+    -id: string
+    -room_id: string
+    -user_id: string
+    -user_name: string
+    -status: 'pending' | 'approved' | 'rejected'
+    -created_at: string
+  }
+
+  class Settings {
+    -theme: 'light' | 'dark' | 'system'
+    -videoQuality: '360p' | '480p' | '720p' | '1080p'
+    -audioInput: string
+    -videoInput: string
+    -reducedMotion: boolean
+    -fontSize: 'small' | 'medium' | 'large'
+    -emailNotifications: boolean
+    -meetingReminders: boolean
+    -soundEffects: boolean
+    -defaultLanguage: string
+    -autoJoinAudio: boolean
+    -autoEnableVideo: boolean
+    -showCaptions: boolean
+  }
+}
+
+note "Canvas-based recording captures\nall video participants at once" as N1
+note "Uses Agora RTC for video conferencing" as N2
+note "Supports YouTube upload and local download" as N3
+
+RecordingUtils .. N1
+useAgoraClient .. N2
+RecordingUtils .. N3
+
+' Relationships
+Room --> VideoGrid
+Room --> Controls
+Room --> TranscriptPanel
+Room --> JoinRequestPopup
+Room --> ParticipantsSidebar
+Room --> TopBar
+Room --> useAgoraClient
+Room --> useRecording
+Room --> Store
+
+VideoGrid --> VideoPlayer
+
+useRecording ..> RecordingUtils
+RecordingUtils ..> CanvasRecorder
+
+Store --> User
+Store --> JoinRequest
+Store --> Settings
+
+RecordingUtils ..> Recording
+TranscriptPanel ..> Transcript
+
+@enduml

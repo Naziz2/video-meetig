@@ -1,0 +1,133 @@
+@startuml Video Meeting Application - Use Case Diagram
+
+skinparam actorStyle awesome
+skinparam usecaseArrowColor #2C3E50
+skinparam usecaseBackgroundColor #3498DB
+skinparam usecaseBorderColor #2980B9
+skinparam usecaseFontColor #FFFFFF
+skinparam noteBackgroundColor #F1C40F
+skinparam noteBorderColor #F39C12
+
+actor "User" as user
+actor "Host" as host
+actor "Participant" as participant
+actor "Admin" as admin
+
+rectangle "Video Meeting Application" {
+  ' Authentication & Profile
+  usecase "Register/Login" as UC1
+  usecase "Verify Email" as UC1_1
+  usecase "Manage Profile" as UC1_2
+  usecase "Update Settings" as UC1_3
+  
+  ' Meeting Management
+  usecase "Create Meeting" as UC2
+  usecase "Schedule Meeting" as UC2_1
+  usecase "Generate Meeting Link" as UC2_2
+  usecase "Set Meeting Password" as UC2_3
+  usecase "Enable Waiting Room" as UC2_4
+  
+  ' Joining Meetings
+  usecase "Join Meeting" as UC3
+  usecase "Enter Meeting Password" as UC3_1
+  usecase "Wait in Waiting Room" as UC3_2
+  usecase "Request to Join" as UC3_3
+  
+  ' In-Meeting Controls
+  usecase "Manage Audio/Video" as UC4
+  usecase "Share Screen" as UC5
+  usecase "Chat with Participants" as UC5_1
+  
+  ' Recording Functionality
+  usecase "Record Meeting" as UC6
+  usecase "Canvas-based Recording" as UC6_1
+  usecase "Upload Recording to Cloud" as UC7
+  usecase "Upload to YouTube" as UC7_1
+  usecase "Download Recording" as UC8
+  
+  ' Transcription
+  usecase "Transcribe Meeting" as UC9
+  usecase "Select Transcription Language" as UC9_1
+  usecase "Export Transcript" as UC9_2
+  
+  ' Host Controls
+  usecase "Manage Participants" as UC10
+  usecase "Mute/Unmute Participants" as UC10_1
+  usecase "Remove Participant" as UC10_2
+  usecase "Approve/Reject Join Requests" as UC11
+  
+  ' Meeting Organization
+  usecase "Schedule Meetings" as UC12
+  usecase "Set Recurring Meetings" as UC12_1
+  usecase "Invite Participants" as UC12_2
+  usecase "View Meeting History" as UC13
+  
+  ' Admin Functions
+  usecase "Manage System Settings" as UC14
+  usecase "View Analytics" as UC15
+}
+
+' User relationships
+user --> UC1
+user --> UC1_2
+user --> UC1_3
+user --> UC3
+user --> UC4
+user --> UC5
+user --> UC5_1
+
+' Host relationships
+host --|> user
+host --> UC2
+host --> UC2_1
+host --> UC2_2
+host --> UC2_3
+host --> UC2_4
+host --> UC6
+host --> UC7
+host --> UC8
+host --> UC9
+host --> UC10
+host --> UC10_1
+host --> UC10_2
+host --> UC11
+host --> UC12
+host --> UC12_1
+host --> UC12_2
+host --> UC13
+
+' Participant relationships
+participant --|> user
+participant --> UC3_1
+participant --> UC3_2
+participant --> UC3_3
+
+' Admin relationships
+admin --|> user
+admin --> UC14
+admin --> UC15
+
+' Include relationships
+UC1 ..> UC1_1 : <<include>>
+UC2 ..> UC2_2 : <<include>>
+UC6 ..> UC6_1 : <<include>>
+UC6 ..> UC7 : <<include>>
+UC9 ..> UC9_1 : <<include>>
+
+' Extend relationships
+UC3 ..> UC3_1 : <<extend>>
+UC3 ..> UC3_2 : <<extend>>
+UC3 ..> UC3_3 : <<extend>>
+UC6 ..> UC8 : <<extend>>
+UC7 ..> UC7_1 : <<extend>>
+UC9 ..> UC9_2 : <<extend>>
+UC12 ..> UC12_1 : <<extend>>
+UC12 ..> UC12_2 : <<extend>>
+
+note "Canvas-based recording captures\nall video participants at once" as N1
+note "Uses Agora RTC SDK for\nvideo conferencing" as N2
+
+UC6_1 .. N1
+UC4 .. N2
+
+@enduml

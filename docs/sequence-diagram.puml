@@ -1,0 +1,249 @@
+@startuml Video Meeting Application - Recording Sequence Diagram
+
+skinparam sequenceArrowColor #2C3E50
+skinparam sequenceParticipantBackgroundColor #3498DB
+skinparam sequenceParticipantBorderColor #2980B9
+skinparam sequenceLifeLineBorderColor #7F8C8D
+skinparam sequenceGroupBackgroundColor #ECF0F1
+skinparam sequenceGroupBorderColor #BDC3C7
+skinparam noteBackgroundColor #F1C40F
+skinparam noteBorderColor #F39C12
+
+actor "User" as user
+participant "Room Component" as room
+participant "Controls Component" as controls
+participant "useRecording Hook" as recordingHook
+participant "RecordingUtils" as recordingUtils
+participant "CanvasRecorder" as canvasRecorder
+participant "VideoGrid Component" as videoGrid
+participant "VideoPlayer Component" as videoPlayer
+participant "Browser MediaDevices API" as mediaDevices
+participant "Cloudinary API" as cloudinary
+participant "Supabase DB" as supabase
+participant "File System" as fileSystem
+
+title Canvas-Based Recording Process Flow
+
+== Recording Initialization ==
+
+user -> controls : Click Record Button
+activate controls
+
+controls -> recordingHook : toggleRecording()
+activate recordingHook
+
+recordingHook -> recordingUtils : toggleRecording()
+activate recordingUtils
+
+recordingUtils -> recordingUtils : isRecordingActive ? stopRecording() : startRecording()
+
+== Recording Start Process ==
+
+group Start Recording
+    recordingUtils -> recordingUtils : updateRecordButtonState()
+    
+    recordingUtils -> mediaDevices : getUserMedia({audio: true})
+    activate mediaDevices
+    
+    alt Successful Audio Permission
+        mediaDevices --> recordingUtils : Return audioStream
+        
+        recordingUtils -> mediaDevices : getDisplayMedia({video: true})
+        
+        alt Successful Screen Capture Permission
+            mediaDevices --> recordingUtils : Return screenStream
+            
+            recordingUtils -> recordingUtils : createCanvasStream(videos, audioTrack)
+            activate recordingUtils #DarkSalmon
+            
+            recordingUtils -> videoGrid : Get all video elements
+            activate videoGrid
+            videoGrid --> recordingUtils : Return video elements array
+            deactivate videoGrid
+            
+            recordingUtils -> canvasRecorder : initialize(videos, audioTrack)
+            activate canvasRecorder
+            
+            canvasRecorder -> canvasRecorder : Create canvas element
+            canvasRecorder -> canvasRecorder : Get 2D context
+            canvasRecorder -> canvasRecorder : calculateLayout(videos.length)
+            
+            canvasRecorder --> recordingUtils : Initialized canvas recorder
+            
+            recordingUtils -> canvasRecorder : startRecording()
+            
+            canvasRecorder -> canvasRecorder : Set up animation frame loop
+            canvasRecorder -> canvasRecorder : Create MediaRecorder with canvas stream
+            canvasRecorder -> canvasRecorder : Start MediaRecorder
+            
+            canvasRecorder --> recordingUtils : Recording started
+            deactivate canvasRecorder
+            
+            recordingUtils -> recordingUtils : isRecordingActive = true
+            recordingUtils -> recordingUtils : recordingStartTime = Date.now()
+            recordingUtils -> recordingUtils : Start recording timer
+            
+            recordingUtils --> recordingHook : Recording started successfully
+            deactivate recordingUtils #DarkSalmon
+            
+            recordingHook -> room : Update recording status
+            activate room
+            room -> room : Update UI with recording indicator
+            deactivate room
+            
+        else Permission Denied for Screen
+            mediaDevices --> recordingUtils : Error: Permission denied
+            recordingUtils -> recordingUtils : handleRecordingError(error)
+            recordingUtils -> recordingUtils : permissionDeniedRecently = true
+            recordingUtils -> recordingUtils : Show error notification
+            recordingUtils --> recordingHook : Recording failed
+        end
+        
+    else Permission Denied for Audio
+        mediaDevices --> recordingUtils : Error: Permission denied
+        recordingUtils -> recordingUtils : handleRecordingError(error)
+        recordingUtils -> recordingUtils : permissionDeniedRecently = true
+        recordingUtils -> recordingUtils : Show error notification
+        recordingUtils --> recordingHook : Recording failed
+    end
+    
+    deactivate mediaDevices
+end
+
+== During Recording ==
+
+group Recording in Progress
+    loop Every Animation Frame
+        canvasRecorder -> canvasRecorder : drawFrame()
+        canvasRecorder -> videoPlayer : Get current frame from each video
+        activate videoPlayer
+        videoPlayer --> canvasRecorder : Video frames
+        deactivate videoPlayer
+        canvasRecorder -> canvasRecorder : Draw videos in grid layout
+    end
+    
+    recordingUtils -> recordingUtils : updateRecordingTimer()
+    recordingUtils -> recordingHook : Update recording time
+    recordingHook -> controls : Update recording time display
+end
+
+== Recording Stop Process ==
+
+group Stop Recording
+    user -> controls : Click Record Button (Stop)
+    controls -> recordingHook : toggleRecording()
+    recordingHook -> recordingUtils : toggleRecording()
+    
+    recordingUtils -> recordingUtils : isRecordingActive ? stopRecording() : startRecording()
+    
+    recordingUtils -> canvasRecorder : stopRecording()
+    activate canvasRecorder
+    
+    canvasRecorder -> canvasRecorder : Stop animation frame loop
+    canvasRecorder -> canvasRecorder : mediaRecorder.stop()
+    canvasRecorder -> canvasRecorder : Wait for dataavailable event
+    canvasRecorder -> canvasRecorder : Combine chunks into final Blob
+    
+    canvasRecorder --> recordingUtils : Return recording Blob
+    deactivate canvasRecorder
+    
+    recordingUtils -> recordingUtils : isRecordingActive = false
+    recordingUtils -> recordingUtils : Stop recording timer
+    recordingUtils -> recordingUtils : Calculate recording duration
+    
+    recordingUtils -> recordingUtils : Create File from Blob
+end
+
+== Recording Upload Process ==
+
+group Upload Recording
+    recordingUtils -> recordingUtils : uploadRecording(file)
+    
+    recordingUtils -> cloudinary : Upload file with upload preset
+    activate cloudinary
+    
+    alt Successful Upload
+        cloudinary --> recordingUtils : Return upload response
+        
+        recordingUtils -> supabase : saveRecordingToDatabase(fileUrl, fileSize, duration, roomId)
+        activate supabase
+        
+        alt Database Save Success
+            supabase --> recordingUtils : Recording saved
+            recordingUtils -> room : Show success notification
+        else Database Save Error
+            supabase --> recordingUtils : Error saving to database
+            recordingUtils -> recordingUtils : Log error
+            recordingUtils -> room : Show partial success (uploaded but not saved to DB)
+        end
+        
+        deactivate supabase
+        
+    else Upload Failed
+        cloudinary --> recordingUtils : Upload error
+        
+        recordingUtils -> recordingUtils : Show error notification
+        
+        recordingUtils -> recordingUtils : Fallback to local download
+        
+        recordingUtils -> fileSystem : saveRecordingLocally(file)
+        activate fileSystem
+        
+        fileSystem -> fileSystem : Create download link
+        fileSystem -> fileSystem : Trigger download
+        
+        fileSystem --> recordingUtils : File downloaded
+        deactivate fileSystem
+        
+        recordingUtils -> room : Show fallback notification
+    end
+    
+    deactivate cloudinary
+end
+
+== Cleanup Process ==
+
+group Cleanup
+    recordingUtils -> canvasRecorder : cleanup()
+    activate canvasRecorder
+    
+    canvasRecorder -> canvasRecorder : Stop all tracks
+    canvasRecorder -> canvasRecorder : Release resources
+    canvasRecorder -> canvasRecorder : Remove event listeners
+    
+    canvasRecorder --> recordingUtils : Resources cleaned up
+    deactivate canvasRecorder
+    
+    recordingUtils -> recordingUtils : Reset recording state
+    recordingUtils -> recordingUtils : updateRecordButtonState()
+    
+    recordingUtils --> recordingHook : Recording process completed
+    deactivate recordingUtils
+    
+    recordingHook --> controls : Update UI state
+    deactivate recordingHook
+    
+    controls --> user : Recording process finished
+    deactivate controls
+end
+
+note right of canvasRecorder
+  Canvas-based recording captures
+  all video participants at once in
+  a grid layout on a single canvas
+end note
+
+note right of cloudinary
+  Cloudinary configured with:
+  - Cloud name: dbtnbqmw8
+  - Upload preset: ml_default
+end note
+
+note right of recordingUtils
+  Fallback mechanism ensures
+  users can always get their
+  recording even if cloud
+  upload fails
+end note
+
+@enduml
