@@ -106,17 +106,6 @@ export const Join = () => {
       return;
     }
 
-    // Validate that the room ID exists in the Supabase meetings table
-    const { data, error: dbError } = await supabase
-      .from('meetings')
-      .select('id')
-      .eq('id', roomId)
-      .single();
-    if (dbError || !data) {
-      setError('Invalid meeting code. This meeting does not exist.');
-      setIsLoading(false);
-      return;
-    }
 
     setIsLoading(true);
     try {
