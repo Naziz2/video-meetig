@@ -214,14 +214,6 @@ export const TranscriptPanel: React.FC<TranscriptPanelProps> = ({ selectedLangua
     }
   };
 
-  const handleImageClick = (imageUrl: string) => {
-    setSelectedImage(imageUrl);
-  };
-
-  const closeImageModal = () => {
-    setSelectedImage(null);
-  };
-
   const downloadImage = (imageUrl: string) => {
     const a = document.createElement('a');
     a.href = imageUrl;
@@ -401,12 +393,12 @@ Please provide:
           <img
             src={imageUrl}
             alt="Full size"
-            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            className="max-w-full max-h-[90vh] object-contain rounded-xl"
             onClick={(e) => e.stopPropagation()}
           />
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 bg-slate-800/90 rounded-full text-white hover:bg-slate-700"
+            className="absolute top-4 right-4 p-2 bg-slate-800/90 rounded-full text-white hover:bg-secondary-700"
           >
             <X className="w-6 h-6" />
           </button>
@@ -415,7 +407,7 @@ Please provide:
               e.stopPropagation();
               onDownload(imageUrl);
             }}
-            className="absolute bottom-4 right-4 p-2 bg-emerald-600 rounded-full text-white hover:bg-emerald-700"
+            className="absolute bottom-4 right-4 p-2 bg-gradient-to-r from-wolt-blue to-blue-400 rounded-full text-white hover:from-wolt-blue-dark hover:to-blue-600"
           >
             <Download className="w-6 h-6" />
           </button>
@@ -429,7 +421,7 @@ Please provide:
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/90">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-emerald-400">
+          <h2 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-wolt-blue to-blue-400">
             {currentMode === 'chat' ? 'AI Chat' : 
              currentMode === 'image' ? 'Image Generation' : 
              'Speech to Text'}
@@ -444,13 +436,13 @@ Please provide:
             <div className="flex-1 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 hover:scrollbar-thumb-slate-500">
               {/* Speech Messages */}
               {speechMessages.map((message) => (
-                <div key={message.id} className={`flex ${message.speaker_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-lg p-3 break-words ${
-                    message.speaker_id === user?.id ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
+                <div key={message.id} className={`flex ${message.speaker === user?.name ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-xl p-3 break-words ${
+                    message.speaker === user?.name ? 'bg-wolt-blue text-white' : 'bg-slate-700 text-white'
                   }`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-emerald-300">{message.speaker}</span>
-                      <span className="text-sm text-emerald-200/80">
+                      <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-wolt-blue to-blue-400">{message.speaker}</span>
+                      <span className="text-sm text-transparent bg-clip-text bg-gradient-to-r from-wolt-blue/80 to-blue-400/80">
                         {new Date(message.created_at).toLocaleTimeString()}
                       </span>
                     </div>
@@ -460,7 +452,7 @@ Please provide:
               ))}
               {currentTranscript && (
                 <div className="flex justify-end">
-                  <div className="max-w-[80%] rounded-lg p-3 break-words bg-emerald-600/50 text-white">
+                  <div className="max-w-[80%] rounded-xl p-3 break-words bg-gradient-to-r from-wolt-blue/80 to-blue-400/80 text-white">
                     <p className="text-sm break-words">{currentTranscript}</p>
                   </div>
                 </div>
@@ -468,13 +460,13 @@ Please provide:
 
               {/* Summary Container - Now inside the scrollable area */}
               {resumeContent && (
-                <div className="bg-slate-800 rounded-lg border border-slate-700">
+                <div className="bg-slate-800 rounded-xl border border-slate-700">
                   <div className="p-4">
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-semibold text-emerald-400">Meeting Summary</h3>
+                      <h3 className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-wolt-blue to-blue-400">Meeting Summary</h3>
                       <button
                         onClick={downloadResume}
-                        className="p-2 bg-emerald-600 rounded-full text-white hover:bg-emerald-700 transition-colors"
+                        className="p-2 bg-gradient-to-r from-wolt-blue to-blue-400 rounded-full text-white hover:from-wolt-blue-dark hover:to-blue-600 transition-colors"
                         disabled={isSummaryLoading}
                       >
                         <Download className="w-4 h-4" />
@@ -484,9 +476,9 @@ Please provide:
                       {resumeContent}
                       {(isTyping || isSummaryLoading) && (
                         <span className="inline-flex items-center">
-                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse mx-0.5"></span>
-                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse mx-0.5" style={{ animationDelay: '200ms' }}></span>
-                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse mx-0.5" style={{ animationDelay: '400ms' }}></span>
+                          <span className="w-2 h-2 rounded-full animate-pulse mx-0.5 bg-gradient-to-r from-wolt-blue to-blue-400"></span>
+                          <span className="w-2 h-2 rounded-full animate-pulse mx-0.5 bg-gradient-to-r from-wolt-blue to-blue-400" style={{ animationDelay: '200ms' }}></span>
+                          <span className="w-2 h-2 rounded-full animate-pulse mx-0.5 bg-gradient-to-r from-wolt-blue to-blue-400" style={{ animationDelay: '400ms' }}></span>
                         </span>
                       )}
                     </div>
@@ -498,8 +490,8 @@ Please provide:
         ) : (
           chatMessages.map((message, index) => (
             <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-lg p-3 break-words ${
-                message.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-white'
+              <div className={`max-w-[80%] rounded-xl p-3 break-words ${
+                message.role === 'user' ? 'bg-wolt-blue text-white' : 'bg-slate-700 text-white'
               }`}>
                 <p className="text-sm break-words">{message.content}</p>
                 {message.images && message.images.map((img, imgIndex) => (
@@ -507,7 +499,7 @@ Please provide:
                     <img 
                       src={img} 
                       alt="Generated" 
-                      className="max-w-full rounded-lg shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
+                      className="max-w-full rounded-xl shadow-lg cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => setSelectedImage(img)}
                     />
                     <button
@@ -534,7 +526,7 @@ Please provide:
 
         {isAiResponding && (
           <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-lg p-3 bg-slate-700 text-white">
+            <div className="max-w-[80%] rounded-xl p-3 bg-slate-700 text-white">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                 <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
@@ -546,14 +538,14 @@ Please provide:
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-slate-700 bg-slate-800/90">
+      <div className="p-4 border-t border-secondary-200 dark:border-secondary-700 bg-secondary-100 dark:bg-secondary-800/90">
         <div className="flex gap-2 mb-3">
           <button
             onClick={() => setMode('chat')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors text-sm ${
               currentMode === 'chat'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-700 text-emerald-400 hover:bg-slate-600'
+                ? 'bg-wolt-blue text-white'
+                : 'bg-secondary-200 dark:bg-secondary-700 text-wolt-blue hover:bg-secondary-300 dark:hover:bg-secondary-600'
             }`}
           >
             <MessageCircle className="w-4 h-4" />
@@ -561,10 +553,10 @@ Please provide:
           </button>
           <button
             onClick={() => setMode('image')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors text-sm ${
               currentMode === 'image'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-700 text-emerald-400 hover:bg-slate-600'
+                ? 'bg-wolt-blue text-white'
+                : 'bg-secondary-200 dark:bg-secondary-700 text-wolt-blue hover:bg-secondary-300 dark:hover:bg-secondary-600'
             }`}
           >
             <Image className="w-4 h-4" />
@@ -572,10 +564,10 @@ Please provide:
           </button>
           <button
             onClick={() => setMode('speech')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-colors text-sm ${
               currentMode === 'speech'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-700 text-emerald-400 hover:bg-slate-600'
+                ? 'bg-wolt-blue text-white'
+                : 'bg-secondary-200 dark:bg-secondary-700 text-wolt-blue hover:bg-secondary-300 dark:hover:bg-secondary-600'
             }`}
           >
             <Mic className="w-4 h-4" />
@@ -588,10 +580,10 @@ Please provide:
           <div className="space-y-2">
             <button
               onClick={toggleListening}
-              className={`w-full flex items-center justify-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+              className={`w-full flex items-center justify-center gap-3 p-3 rounded-xl transition-all duration-200 ${
                 isListening 
                   ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-emerald-500 hover:bg-emerald-600'
+                  : 'bg-wolt-blue hover:bg-wolt-blue-dark'
               } text-white font-medium`}
             >
               {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -600,7 +592,7 @@ Please provide:
             {speechMessages.length > 0 && (
               <button
                 onClick={generateResume}
-                className="w-full flex items-center justify-center gap-3 p-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                className="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-wolt-blue hover:bg-wolt-blue-dark text-white font-medium"
               >
                 <Download className="w-5 h-5" />
                 <span>Download Summary</span>
@@ -615,12 +607,12 @@ Please provide:
               onChange={(e) => setUserInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && (currentMode === 'chat' ? sendMessage() : generateImage())}
               placeholder={currentMode === 'chat' ? "Type your message here..." : "Describe the image you want..."}
-              className="flex-1 bg-slate-700 text-white rounded-lg px-3 py-2 border border-slate-600 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="flex-1 bg-slate-700 text-white rounded-xl px-3 py-2 border border-slate-600 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
             <button
               onClick={currentMode === 'chat' ? sendMessage : generateImage}
               disabled={isGenerating}
-              className="px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-wolt-blue rounded-xl hover:bg-wolt-blue-dark text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {currentMode === 'chat' ? 'Send' : 'Generate'}
             </button>

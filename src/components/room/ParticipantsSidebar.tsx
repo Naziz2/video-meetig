@@ -29,16 +29,16 @@ export const ParticipantsSidebar: React.FC<ParticipantsSidebarProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-80 teams-sidebar p-4 z-20">
+    <div className="fixed right-0 top-0 h-full w-80 bg-secondary-100 dark:bg-secondary-800 p-4 z-20 border-l border-secondary-200 dark:border-secondary-700">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-slate-100">Participants</h2>
+        <h2 className="text-lg font-semibold text-secondary-900 dark:text-white">Participants</h2>
         <button onClick={onClose}>
           <X className="w-5 h-5" />
         </button>
       </div>
       <div className="space-y-2">
         {tracks && (
-          <div className="flex items-center justify-between p-2 hover:bg-slate-700 rounded">
+          <div className="flex items-center justify-between p-2 hover:bg-secondary-200 dark:hover:bg-secondary-700 rounded">
             <span>You (Host)</span>
             <div className="flex items-center space-x-2">
               {isMuted ? <MicOff className="w-4 h-4 text-red-500" /> : <Mic className="w-4 h-4" />}
@@ -47,7 +47,7 @@ export const ParticipantsSidebar: React.FC<ParticipantsSidebarProps> = ({
           </div>
         )}
         {users.map((user) => (
-          <div key={user.uid} className="flex items-center justify-between p-2 hover:bg-slate-700 rounded">
+          <div key={user.uid} className="flex items-center justify-between p-2 hover:bg-secondary-200 dark:hover:bg-secondary-700 rounded">
             <span>{user.name || `Participant ${user.uid}`}</span>
             <div className="flex items-center space-x-2">
               {user.audioTrack ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4 text-red-500" />}

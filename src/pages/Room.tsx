@@ -356,7 +356,7 @@ export const Room = () => {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-white text-lg">Checking meeting...</p>
+          <p className="mt-4 text-secondary-900 dark:text-white text-lg">Checking meeting...</p>
         </div>
       </div>
     );
@@ -366,13 +366,13 @@ export const Room = () => {
   if (!roomExists) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center p-8 bg-slate-800 rounded-lg max-w-md">
+        <div className="text-center p-8 bg-secondary-800 rounded-lg max-w-md">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h1 className="text-white text-2xl font-bold mb-4">Meeting Not Found</h1>
-          <p className="text-slate-300 mb-6">The meeting with code "{id}" does not exist.</p>
+          <h1 className="text-secondary-900 dark:text-white text-2xl font-bold mb-4">Meeting Not Found</h1>
+          <p className="text-secondary-600 dark:text-secondary-300 mb-6">The meeting with code "{id}" does not exist.</p>
           <button 
             onClick={() => navigate('/join')}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-wolt-blue hover:bg-wolt-blue-dark text-white rounded-xl transition-all duration-300"
           >
             Go to Join Page
           </button>
@@ -382,7 +382,7 @@ export const Room = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-white dark:bg-secondary-900">
       {/* Join Request Popup */}
       {currentRequest && (
         <JoinRequestPopup
@@ -422,7 +422,7 @@ export const Room = () => {
           </div>
           {showChat && (
             <div className="h-full pr-4 pt-4 pb-4 overflow-hidden">
-              <div className="h-full bg-slate-800 rounded-lg">
+              <div className="h-full bg-secondary-800 rounded-lg">
                 <TranscriptPanel selectedLanguage={selectedLanguage} />
               </div>
             </div>

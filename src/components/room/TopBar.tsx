@@ -25,7 +25,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onChatToggle
 }) => {
   return (
-    <div className="fixed top-0 left-0 right-0 bg-slate-800/95 backdrop-blur-sm text-white p-4 flex items-center justify-between z-10 border-b border-slate-700">
+    <div className="fixed top-0 left-0 right-0 bg-secondary-100 dark:bg-secondary-800/95 backdrop-blur-sm text-secondary-900 dark:text-white p-4 flex items-center justify-between z-10 border-b border-secondary-200 dark:border-secondary-700">
       <div className="flex items-center space-x-4">
         <div className="flex items-center">
           <img 
@@ -33,14 +33,14 @@ export const TopBar: React.FC<TopBarProps> = ({
             alt="App Logo" 
             className="h-8 mr-3" 
           />
-          <h1 className="text-lg font-semibold text-slate-100">Meeting: {roomId}</h1>
+          <h1 className="text-lg font-semibold text-secondary-900 dark:text-white">Meeting: {roomId}</h1>
         </div>
       </div>
       <div className="flex items-center space-x-4">
         <select
           value={selectedLanguage}
           onChange={(e) => onLanguageChange(e.target.value)}
-          className="bg-slate-700 text-white rounded-lg px-3 py-1.5 text-sm border border-slate-600 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          className="bg-secondary-200 dark:bg-secondary-700 text-secondary-900 dark:text-white rounded-lg px-3 py-1.5 text-sm border border-secondary-300 dark:border-secondary-600 focus:ring-2 focus:ring-wolt-blue focus:border-transparent"
         >
           {languageOptions.map(lang => (
             <option key={lang.code} value={lang.code}>
@@ -50,21 +50,21 @@ export const TopBar: React.FC<TopBarProps> = ({
         </select>
         <button
           onClick={onShareClick}
-          className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
+          className="flex items-center space-x-2 px-4 py-2 bg-wolt-blue rounded-xl hover:bg-wolt-blue-dark"
         >
           <Share2 className="w-4 h-4" />
           <span>Share</span>
         </button>
         <button
           onClick={onParticipantsToggle}
-          className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
+          className="flex items-center space-x-2 px-4 py-2 bg-wolt-blue rounded-xl hover:bg-wolt-blue-dark"
         >
           <Users className="w-4 h-4" />
           <span>{participantsCount}</span>
         </button>
         <button
           onClick={onChatToggle}
-          className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700"
+          className="flex items-center space-x-2 px-4 py-2 bg-wolt-blue rounded-xl hover:bg-wolt-blue-dark"
         >
           <MessageSquare className="w-4 h-4" />
         </button>

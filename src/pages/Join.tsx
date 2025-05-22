@@ -153,7 +153,7 @@ export const Join = () => {
           userName: name.trim(),
           roomId,
           timestamp: Date.now(),
-          status: 'pending'
+          status: 'approved'
         };
         
         console.log('Creating join request:', joinRequest);

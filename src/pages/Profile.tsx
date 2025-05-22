@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Camera, User, Lock, Bell, Shield, LogOut, AlertCircle, Globe, Calendar, CheckCircle, XCircle, Sun, Moon, Type } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useStore } from '../store/useStore';
+import { uploadProfileImage } from '../utils/profileimg';
 import ReactCrop, { Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { MeetingScheduler } from '../components/MeetingScheduler';
@@ -65,6 +66,7 @@ export const Profile = () => {
     y: 5
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(user?.avatar_url || null);
   const [completionProgress, setCompletionProgress] = useState(0);
 
   // Calculate profile completion progress
@@ -107,6 +109,7 @@ export const Profile = () => {
             reduced_motion: data.reduced_motion || false,
             font_size: data.font_size || 'medium'
           });
+          setProfileImageUrl(data.avatar_url || null);
           setCompletionProgress(calculateProgress(data));
         }
       } catch (err) {
@@ -136,11 +139,10 @@ export const Profile = () => {
       if (error) throw error;
 
       clearUser();
+      // Clear persistent storage for user (e.g., localStorage)
+      localStorage.removeItem('meetflow-storage');
       setSuccess('Signed out successfully');
-      
-      setTimeout(() => {
-        navigate('/', { replace: true });
-      }, 1000);
+      navigate('/auth', { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred during sign out';
       setError(errorMessage);
@@ -151,7 +153,7 @@ export const Profile = () => {
 
   const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     setIsUploading(true);
     setError(null);
@@ -165,48 +167,32 @@ export const Profile = () => {
       };
       reader.readAsDataURL(file);
 
-      // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      // Upload file to Cloudinary (images/p_images) with username as public ID
+      const username = user.name || user.email || user.id;
+      const imageUrl = await uploadProfileImage(file, username);
+      setProfileImageUrl(imageUrl);
 
       // Update profile in database
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
-          avatar_url: publicUrl,
+          avatar_url: imageUrl,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user?.id);
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
 
       // Update local user state
-      if (user) {
-        setUser({
-          ...user,
-          avatar_url: publicUrl
-        });
-      }
+      setUser({
+        ...user,
+        avatar_url: imageUrl
+      });
 
       setSuccess('Profile picture updated successfully');
-      
-      // Clear the image preview after successful upload
       setTimeout(() => {
         setImagePreview(null);
       }, 2000);
-      
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
@@ -379,41 +365,46 @@ export const Profile = () => {
             <div className="bg-theme-card rounded-2xl p-6 border border-theme">
               <div className="text-center mb-6">
                 <div className="relative inline-block">
-                  {imagePreview ? (
-                    <ReactCrop
-                      crop={crop}
-                      onChange={c => setCrop(c)}
-                      aspect={1}
-                      className="w-24 h-24 rounded-full"
-                    >
-                      <img
-                        src={imagePreview}
-                        alt="Profile preview"
-                        className="w-24 h-24 rounded-full object-cover"
-                      />
-                    </ReactCrop>
-                  ) : (
-                    <img
-                      src={currentUser.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`}
-                      alt="Profile"
-                      className="w-24 h-24 rounded-full border-2 border-slate-700"
-                    />
-                  )}
-                  <label className="absolute bottom-0 right-0 p-2 bg-theme-button hover:bg-theme-button-hover rounded-full text-white cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfilePictureUpload}
-                      className="hidden"
-                      disabled={isUploading}
-                    />
-                    {isUploading ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Camera className="w-4 h-4" />
-                    )}
-                  </label>
+                  <div className="flex flex-col items-center justify-center mb-8">
+                    <div className="relative w-32 h-32 mb-2">
+                      <div className="relative w-32 h-32 mb-2">
+  <img
+    src={imagePreview || profileImageUrl || user?.avatar_url || '/default-profile.png'}
+    alt="Profile"
+    className="rounded-full w-32 h-32 object-cover border-4 border-theme shadow-lg"
+    onError={e => {
+      const target = e.target as HTMLImageElement;
+      if (target.src !== window.location.origin + '/default-profile.png') {
+        target.src = '/default-profile.png';
+      }
+    }}
+  />
+  {isUploading && (
+    <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+      <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+    </div>
+  )}
+</div>
+                      <label htmlFor="profile-picture-upload" className="absolute bottom-2 right-2 bg-theme-button rounded-full p-2 cursor-pointer hover:bg-theme-button-hover transition-colors">
+                        <Camera className="w-5 h-5 text-white" />
+                        <input
+                          id="profile-picture-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleProfilePictureUpload}
+                          className="hidden"
+                          disabled={isUploading}
+                        />
+                      </label>
+                    </div>
+                    <div className="text-sm text-gray-400">Click camera icon to change profile picture</div>
+                  </div>
                 </div>
+              </div>
+              <div>
                 <h2 className="mt-4 text-xl font-semibold text-white">{profileData.name || currentUser.name}</h2>
                 <p className="text-gray-400 text-sm">Member since {new Date(currentUser.created_at || Date.now()).toLocaleDateString()}</p>
                 
@@ -947,13 +938,7 @@ export const Profile = () => {
             {/* Meetings Tab */}
             {activeTab === 'meetings' && (
               <div className="space-y-6">
-                <div className="bg-theme-card rounded-2xl p-6 border border-theme">
-                  <h2 className="text-xl font-semibold text-white mb-6 flex items-center">
-                    <Calendar className="mr-2 w-5 h-5 text-theme-button" />
-                    Schedule a Meeting
-                  </h2>
-                  <MeetingScheduler />
-                </div>
+                <MeetingScheduler />
                 
                 <MeetingsList showAll={true} />
               </div>
